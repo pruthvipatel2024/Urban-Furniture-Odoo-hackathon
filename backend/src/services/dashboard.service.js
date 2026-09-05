@@ -50,12 +50,21 @@ class DashboardService {
 
     // 6. Cash and Bank Balances from Ledger
     const bs = await ReportService.getBalanceSheet({});
-    const cashAccObj = bs.assets?.accounts?.find(a => a.name?.toLowerCase() === 'cash');
-    const bankAccObj = bs.assets?.accounts?.find(a => a.name?.toLowerCase() === 'bank');
-    const cashBalance = cashAccObj ? cashAccObj.balance : 0;
-    const bankBalance = bankAccObj ? bankAccObj.balance : 0;
+    let cashBalance = 0;
+    let bankBalance = 0;
+    for (const a of bs.assets?.accounts || []) {
+      const lower = (a.name || '').toLowerCase();
+      if (lower === 'cash' || lower.includes('cash on hand') || lower.includes('petty cash')) {
+        cashBalance = add(cashBalance, Number(a.balance || 0));
+      } else if (lower === 'bank' || lower.includes('bank account') || lower.includes('hdfc') || lower.includes('sbi')) {
+        bankBalance = add(bankBalance, Number(a.balance || 0));
+      }
+    }
 
-    // 7. Recent Payments
+    // 7. Total Posted Journal Entries
+    const postedEntriesCount = await JournalEntry.count();
+
+    // 8. Recent Payments
     const recentPayments = await Payment.findAll({
       limit: 5,
       order: [['created_at', 'DESC']],
@@ -65,14 +74,14 @@ class DashboardService {
       ],
     });
 
-    // 8. Recent Invoices
+    // 9. Recent Invoices
     const recentInvoices = await CustomerInvoice.findAll({
       limit: 5,
       order: [['created_at', 'DESC']],
       include: [{ model: Contact, as: 'customer' }],
     });
 
-    // 9. Recent Journal Entries
+    // 10. Recent Journal Entries
     const recentJournals = await JournalEntry.findAll({
       limit: 5,
       order: [['created_at', 'DESC']],
@@ -93,6 +102,7 @@ class DashboardService {
         cashBalance,
         bankBalance,
         liquidFunds: add(cashBalance, bankBalance),
+        postedEntriesCount,
       },
       recentInvoices,
       recentPayments,

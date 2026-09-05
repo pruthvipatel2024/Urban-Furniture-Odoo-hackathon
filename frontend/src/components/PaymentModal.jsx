@@ -91,26 +91,26 @@ export default function PaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+    <div className="fixed inset-0 z-50 bg-[#0B2A4A]/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-[#E3E7EA] animate-in fade-in zoom-in-95">
+        <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-3">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-[#C6E7FF] text-slate-900">
+            <div className="p-2 rounded-xl bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8]">
               <CreditCard className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-900 font-display">Register Accounting Payment</h3>
-              <p className="text-[11px] text-slate-500">Atomic Double-Entry General Ledger Posting</p>
+              <h3 className="font-bold text-sm text-[#0B2A4A] font-display">Register Accounting Payment</h3>
+              <p className="text-[11px] text-[#667482]">Atomic Double-Entry General Ledger Posting</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <button onClick={onClose} className="text-[#8A96A3] hover:text-[#17212B] p-1 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+          <div className="p-3 bg-[#FDECEC] border border-[#F8B4B4] rounded-xl text-xs text-[#B42318] font-medium flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#B42318]" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -118,7 +118,7 @@ export default function PaymentModal({
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
           {/* Transaction Category Selector */}
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Transaction Category</label>
+            <label className="block text-[#17212B] font-semibold mb-1">Transaction Category</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -130,8 +130,8 @@ export default function PaymentModal({
                 }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   docType === 'Customer Invoice'
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs'
-                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-[#EAF7F0] border-[#A3E6C0] text-[#18794E] shadow-xs'
+                    : 'bg-[#FAFAF8] border-[#E3E7EA] text-[#667482] hover:bg-[#EEF4F8]'
                 }`}
               >
                 Customer Receipt (Inflow)
@@ -146,8 +146,8 @@ export default function PaymentModal({
                 }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   docType === 'Vendor Bill'
-                    ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-xs'
-                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-[#F8F0E6] border-[#E5B875]/60 text-[#C98232] shadow-xs'
+                    : 'bg-[#FAFAF8] border-[#E3E7EA] text-[#667482] hover:bg-[#EEF4F8]'
                 }`}
               >
                 Vendor Payout (Outflow)
@@ -157,7 +157,7 @@ export default function PaymentModal({
 
           {/* Document Dropdown */}
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Select Document to Settle *</label>
+            <label className="block text-[#17212B] font-semibold mb-1">Select Document to Settle *</label>
             <select
               required
               value={selectedDocId}
@@ -169,7 +169,7 @@ export default function PaymentModal({
                   : vendorBills.find(b => b.id === id);
                 if (doc) setAmount(doc.balance);
               }}
-              className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-900 outline-none focus:border-[#3095EB] font-bold"
+              className="w-full px-3 py-2 bg-white rounded-xl border border-[#E3E7EA] text-[#17212B] outline-none focus:border-[#0B2A4A] focus:ring-2 focus:ring-[#EEF4F8] font-bold"
             >
               <option value="">-- Choose Unsettled Document --</option>
               {docType === 'Customer Invoice' ? (
@@ -190,35 +190,35 @@ export default function PaymentModal({
 
           {/* Active Balance & Simulated Funds Info Panel */}
           {activeDoc && (
-            <div className="p-3 bg-[#D4F6FF]/30 rounded-xl border border-[#C6E7FF] space-y-1.5 text-xs">
+            <div className="p-3 bg-[#EEF4F8] rounded-xl border border-[#D8E1E8] space-y-1.5 text-xs">
               <div className="flex justify-between items-center">
-                <span className="text-slate-600">Document Outstanding:</span>
-                <span className="font-extrabold text-[#10497D] text-sm font-mono">{formatCurrency(maxBalance)}</span>
+                <span className="text-[#667482]">Document Outstanding:</span>
+                <span className="font-extrabold text-[#0B2A4A] text-sm font-mono">{formatCurrency(maxBalance)}</span>
               </div>
-              <div className="flex justify-between items-center text-[11px] border-t border-[#ACEEFF]/60 pt-1 text-slate-500">
+              <div className="flex justify-between items-center text-[11px] border-t border-[#D8E1E8] pt-1 text-[#667482]">
                 <span>Available {paymentMethod === 'bank' ? 'Bank' : 'Cash'} Reserves:</span>
-                <span className="font-mono font-bold text-slate-800">{formatCurrency(availableFunds)}</span>
+                <span className="font-mono font-bold text-[#17212B]">{formatCurrency(availableFunds)}</span>
               </div>
             </div>
           )}
 
           {/* Simulated Payment Method Selector */}
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Simulated Payment Source</label>
+            <label className="block text-[#17212B] font-semibold mb-1">Simulated Payment Source</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('bank')}
                 className={`p-2.5 rounded-xl border text-left flex items-center space-x-2 transition-all cursor-pointer ${
                   paymentMethod === 'bank'
-                    ? 'bg-[#C6E7FF] border-[#9BD5FF] text-slate-900 shadow-xs'
-                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-[#EEF4F8] border-[#0B2A4A] text-[#0B2A4A] shadow-xs'
+                    : 'bg-[#FAFAF8] border-[#E3E7EA] text-[#667482] hover:bg-[#EEF4F8]'
                 }`}
               >
-                <Landmark className="w-4 h-4 text-[#1B76C7] shrink-0" />
+                <Landmark className="w-4 h-4 text-[#0B2A4A] shrink-0" />
                 <div>
                   <p className="font-bold text-xs">Pay Online / Bank</p>
-                  <p className="text-[10px] text-slate-500 font-mono">Reserves: {formatCurrency(liquidBalances.bank)}</p>
+                  <p className="text-[10px] text-[#667482] font-mono">Reserves: {formatCurrency(liquidBalances.bank)}</p>
                 </div>
               </button>
 
@@ -227,14 +227,14 @@ export default function PaymentModal({
                 onClick={() => setPaymentMethod('cash')}
                 className={`p-2.5 rounded-xl border text-left flex items-center space-x-2 transition-all cursor-pointer ${
                   paymentMethod === 'cash'
-                    ? 'bg-[#C6E7FF] border-[#9BD5FF] text-slate-900 shadow-xs'
-                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-[#EEF4F8] border-[#0B2A4A] text-[#0B2A4A] shadow-xs'
+                    : 'bg-[#FAFAF8] border-[#E3E7EA] text-[#667482] hover:bg-[#EEF4F8]'
                 }`}
               >
-                <Wallet className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Wallet className="w-4 h-4 text-[#18794E] shrink-0" />
                 <div>
                   <p className="font-bold text-xs">Cash on Hand</p>
-                  <p className="text-[10px] text-slate-500 font-mono">Reserves: {formatCurrency(liquidBalances.cash)}</p>
+                  <p className="text-[10px] text-[#667482] font-mono">Reserves: {formatCurrency(liquidBalances.cash)}</p>
                 </div>
               </button>
             </div>
@@ -242,7 +242,7 @@ export default function PaymentModal({
 
           {/* Amount Input */}
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Settlement Amount (₹) *</label>
+            <label className="block text-[#17212B] font-semibold mb-1">Settlement Amount (₹) *</label>
             <input
               type="number"
               required
@@ -251,19 +251,19 @@ export default function PaymentModal({
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-900 font-bold font-mono text-sm outline-none focus:border-[#3095EB]"
+              className="w-full px-3 py-2 bg-white rounded-xl border border-[#E3E7EA] text-[#0B2A4A] font-bold font-mono text-sm outline-none focus:border-[#0B2A4A] focus:ring-2 focus:ring-[#EEF4F8]"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Payment Reference & Notes</label>
+            <label className="block text-[#17212B] font-semibold mb-1">Payment Reference & Notes</label>
             <input
               type="text"
               placeholder="e.g. UTR #9821389123 / Simulated IMPS Ref"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none"
+              className="w-full px-3 py-2 bg-white rounded-xl border border-[#E3E7EA] text-[#17212B] outline-none focus:border-[#0B2A4A]"
             />
           </div>
 
@@ -271,16 +271,16 @@ export default function PaymentModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold"
+              className="px-4 py-2 bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] rounded-xl font-semibold border border-[#D8E1E8]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 rounded-xl font-bold shadow-xs border border-[#9BD5FF]/40 cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
+              className="px-5 py-2 bg-[#0B2A4A] hover:bg-[#163B63] text-white rounded-xl font-bold shadow-xs cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
             >
-              <ShieldCheck className="w-4 h-4 text-slate-900" />
+              <ShieldCheck className="w-4 h-4 text-white" />
               <span>{isSubmitting ? 'Posting Ledger...' : 'Confirm & Post to Ledger'}</span>
             </button>
           </div>

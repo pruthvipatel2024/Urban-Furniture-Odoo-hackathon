@@ -141,12 +141,18 @@ CREATE TABLE `budgets` (
     `responsible_person`      VARCHAR(150)   DEFAULT NULL,
     `planned_amount`          DECIMAL(14,2)  NOT NULL,
     `analytic_account_id`     INT            DEFAULT NULL,
+    `status`                  VARCHAR(20)    NOT NULL DEFAULT 'draft',
+    `revision_of_id`          INT            DEFAULT NULL,
+    `revised_budget_id`       INT            DEFAULT NULL,
     `created_at`              DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`              DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_budgets_analytic` FOREIGN KEY (`analytic_account_id`) REFERENCES `analytic_accounts`(`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_budgets_revision_of` FOREIGN KEY (`revision_of_id`) REFERENCES `budgets`(`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_budgets_revised` FOREIGN KEY (`revised_budget_id`) REFERENCES `budgets`(`id`) ON DELETE SET NULL,
     CONSTRAINT `chk_budget_dates`    CHECK (`period_end` >= `period_start`),
-    CONSTRAINT `chk_budget_planned`  CHECK (`planned_amount` >= 0)
+    CONSTRAINT `chk_budget_planned`  CHECK (`planned_amount` >= 0),
+    CONSTRAINT `chk_budget_status`   CHECK (`status` IN ('draft', 'confirmed', 'revised', 'cancelled'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

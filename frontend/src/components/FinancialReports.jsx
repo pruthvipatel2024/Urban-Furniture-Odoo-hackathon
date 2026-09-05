@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
   Scale,
@@ -8,38 +8,46 @@ import {
   Printer,
   ShieldCheck,
   CheckCircle2,
-  DollarSign
+  DollarSign,
+  ListOrdered
 } from 'lucide-react';
 
-export default function FinancialReports() {
+export default function FinancialReports({ initialReport = 'balance-sheet' }) {
   const {
     balanceSheetData,
     pnlData,
     budgetReportData,
     stockReportData,
+    trialBalanceData,
     formatCurrency
   } = useAccounting();
 
-  const [activeReport, setActiveReport] = useState('balance-sheet'); // 'balance-sheet' | 'pnl' | 'budget' | 'stock'
+  const [activeReport, setActiveReport] = useState(initialReport); // 'balance-sheet' | 'pnl' | 'budget' | 'stock' | 'trial-balance'
+
+  useEffect(() => {
+    if (initialReport) {
+      setActiveReport(initialReport);
+    }
+  }, [initialReport]);
 
   return (
     <div className="space-y-6">
       {/* Official Company Statement Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-5 rounded-2xl border border-[#E3E7EA] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3.5">
-          <div className="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center border border-slate-200 shadow-xs shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center border border-[#E3E7EA] shadow-xs shrink-0">
             <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 font-display">Urban Furniture Ltd. — Statutory Statements</h2>
-            <p className="text-xs text-slate-500">Official Double-Entry Accounting & Management Reports • FY 2026-2027</p>
+            <h2 className="text-base font-extrabold text-[#0B2A4A] font-display">Urban Furniture Ltd. — Statutory Statements</h2>
+            <p className="text-xs text-[#667482]">Official Double-Entry Accounting & Management Reports • FY 2026-2027</p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
           <button
             onClick={() => window.print()}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#C6E7FF] hover:bg-[#9BD5FF] text-slate-900 text-xs font-bold rounded-xl border border-[#9BD5FF]/40 shadow-xs cursor-pointer"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print Report</span>
@@ -48,14 +56,14 @@ export default function FinancialReports() {
       </div>
 
       {/* Top Filter & Report Switcher */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 no-print">
+      <div className="bg-white p-4 rounded-2xl border border-[#E3E7EA] shadow-xs flex flex-wrap items-center justify-between gap-3 no-print">
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveReport('balance-sheet')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeReport === 'balance-sheet'
-                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] shadow-xs'
+                : 'text-[#667482] hover:text-[#0B2A4A] hover:bg-[#FAFAF8]'
             }`}
           >
             <Scale className="w-4 h-4" />
@@ -66,8 +74,8 @@ export default function FinancialReports() {
             onClick={() => setActiveReport('pnl')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeReport === 'pnl'
-                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] shadow-xs'
+                : 'text-[#667482] hover:text-[#0B2A4A] hover:bg-[#FAFAF8]'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -75,113 +83,125 @@ export default function FinancialReports() {
           </button>
 
           <button
+            onClick={() => setActiveReport('budget')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeReport === 'budget'
+                ? 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] shadow-xs'
+                : 'text-[#667482] hover:text-[#0B2A4A] hover:bg-[#FAFAF8]'
+            }`}
+          >
+            <PieChart className="w-4 h-4" />
+            <span>Budget Report</span>
+          </button>
+
+          <button
+            onClick={() => setActiveReport('trial-balance')}
+            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeReport === 'trial-balance'
+                ? 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] shadow-xs'
+                : 'text-[#667482] hover:text-[#0B2A4A] hover:bg-[#FAFAF8]'
+            }`}
+          >
+            <ListOrdered className="w-4 h-4" />
+            <span>Trial Balance</span>
+          </button>
+
+          <button
             onClick={() => setActiveReport('stock')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeReport === 'stock'
-                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] shadow-xs'
+                : 'text-[#667482] hover:text-[#0B2A4A] hover:bg-[#FAFAF8]'
             }`}
           >
             <Package className="w-4 h-4" />
             <span>Stock Valuation</span>
-          </button>
-
-          <button
-            onClick={() => setActiveReport('budget')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeReport === 'budget'
-                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <PieChart className="w-4 h-4" />
-            <span>Budget vs Actual</span>
           </button>
         </div>
       </div>
 
       {/* REPORT 1: BALANCE SHEET */}
       {activeReport === 'balance-sheet' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-6 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900 font-display">Balance Sheet Statement</h3>
-              <p className="text-xs text-slate-500">As of Present • Total Assets = Total Liabilities + Equity</p>
+              <h3 className="text-base font-bold text-[#0B2A4A] font-display">Balance Sheet Statement</h3>
+              <p className="text-xs text-[#667482]">As of Present • Total Assets = Total Liabilities + Capital</p>
             </div>
             <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-              balanceSheetData.isBalanced ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+              balanceSheetData.isBalanced ? 'bg-[#EAF7F0] text-[#18794E] border-[#A3E6C0]' : 'bg-[#FDECEC] text-[#B42318] border-[#F8B4B4]'
             }`}>
-              {balanceSheetData.isBalanced ? '✓ Equation Balanced' : 'Discrepancy'}
+              {balanceSheetData.isBalanced ? '✓ Total Assets = Total Liabilities + Capital' : 'Discrepancy'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left: Assets */}
-            <div className="bg-[#FBFBFB] p-5 rounded-2xl border border-slate-200 space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-2">
-                1. Assets (Current & Non-Current)
+            <div className="bg-[#FAFAF8] p-5 rounded-2xl border border-[#E3E7EA] space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#667482] border-b border-[#E3E7EA] pb-2">
+                1. Assets (Bank, Cash, Debtors, Inventory, Other Assets)
               </h4>
 
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-700">Cash on Hand</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.cashAcc)}</span>
+                  <span className="text-[#17212B]">Cash Account (Cash on Hand)</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.cashAcc)}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-700">Bank Account (HDFC Bank)</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.bankAcc)}</span>
+                  <span className="text-[#17212B]">Bank Account (HDFC Bank)</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.bankAcc)}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-700">Accounts Receivable (Debtors)</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.debtorsAcc)}</span>
+                  <span className="text-[#17212B]">Accounts Receivable (Debtors)</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.debtorsAcc)}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-700">Inventory Asset Valuation</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.inventoryValuation)}</span>
+                  <span className="text-[#17212B]">Inventory Asset Valuation</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.inventoryValuation)}</span>
                 </div>
               </div>
 
-              <div className="pt-3 border-t-2 border-slate-300 flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-900">Total Assets:</span>
-                <span className="font-mono text-base text-emerald-700">{formatCurrency(balanceSheetData.totalAssets)}</span>
+              <div className="pt-3 border-t-2 border-[#D8E1E8] flex justify-between items-center text-xs font-bold">
+                <span className="text-[#17212B]">Total Assets:</span>
+                <span className="font-mono text-base text-[#18794E]">{formatCurrency(balanceSheetData.totalAssets)}</span>
               </div>
             </div>
 
-            {/* Right: Liabilities & Equity */}
-            <div className="bg-[#FBFBFB] p-5 rounded-2xl border border-slate-200 space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-2">
-                2. Liabilities & Equity
+            {/* Right: Liabilities & Capital */}
+            <div className="bg-[#FAFAF8] p-5 rounded-2xl border border-[#E3E7EA] space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#667482] border-b border-[#E3E7EA] pb-2">
+                2. Liabilities & Capital
               </h4>
 
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-700">Accounts Payable (Creditors)</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.creditorsAcc)}</span>
+                  <span className="text-[#17212B]">Accounts Payable (Creditors)</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.creditorsAcc)}</span>
                 </div>
-                <div className="flex justify-between py-1 border-t border-slate-100 pt-2 font-semibold">
-                  <span className="text-slate-800">Total Liabilities:</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.totalLiabilities)}</span>
+                <div className="flex justify-between py-1 border-t border-[#E3E7EA] pt-2 font-semibold">
+                  <span className="text-[#17212B]">Total Liabilities:</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.totalLiabilities)}</span>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200">
+                <div className="pt-2 border-t border-[#E3E7EA]">
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-700">Owner's Capital / Equity</span>
-                    <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.ownersEquity)}</span>
+                    <span className="text-[#17212B]">Owner's Capital / Equity</span>
+                    <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.ownersEquity)}</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-700">Retained Earnings (Net Profit)</span>
-                    <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.retainedEarnings)}</span>
+                    <span className="text-[#17212B]">Retained Net Profit</span>
+                    <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.retainedEarnings)}</span>
                   </div>
                   <div className="flex justify-between py-1 font-semibold pt-1">
-                    <span className="text-slate-800">Total Capital & Equity:</span>
-                    <span className="font-mono font-bold text-slate-900">{formatCurrency(balanceSheetData.totalCapital)}</span>
+                    <span className="text-[#17212B]">Total Capital:</span>
+                    <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(balanceSheetData.totalCapital)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-3 border-t-2 border-slate-300 flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-900">Total Liabilities & Equity:</span>
-                <span className="font-mono text-base text-[#145B9D]">{formatCurrency(balanceSheetData.totalLiabilitiesAndCapital)}</span>
+              <div className="pt-3 border-t-2 border-[#D8E1E8] flex justify-between items-center text-xs font-bold">
+                <span className="text-[#17212B]">Total Liabilities + Capital:</span>
+                <span className="font-mono text-base text-[#0B2A4A]">{formatCurrency(balanceSheetData.totalLiabilitiesAndCapital)}</span>
               </div>
             </div>
           </div>
@@ -190,110 +210,165 @@ export default function FinancialReports() {
 
       {/* REPORT 2: PROFIT & LOSS */}
       {activeReport === 'pnl' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden p-6 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900 font-display">Profit & Loss (Income Statement)</h3>
-              <p className="text-xs text-slate-500">Revenue - Cost of Goods Sold = Operating Profit</p>
+              <h3 className="text-base font-bold text-[#0B2A4A] font-display">Profit and Loss Statement</h3>
+              <p className="text-xs text-[#667482]">Income - Expense - Other Expense = Net Income</p>
             </div>
             <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-              pnlData.netProfit >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+              pnlData.netProfit >= 0 ? 'bg-[#EAF7F0] text-[#18794E] border-[#A3E6C0]' : 'bg-[#FDECEC] text-[#B42318] border-[#F8B4B4]'
             }`}>
-              {pnlData.profitMarginPercent}% Margin
+              Operating Margin: {pnlData.profitMarginPercent}%
             </span>
           </div>
 
-          <div className="space-y-4 max-w-2xl mx-auto text-xs">
-            {/* Operating Income */}
-            <div className="bg-[#FBFBFB] p-4 rounded-xl border border-slate-200 space-y-2">
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1">
-                1. Operating Revenue
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left: Income */}
+            <div className="bg-[#FAFAF8] p-5 rounded-2xl border border-[#E3E7EA] space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#667482] border-b border-[#E3E7EA] pb-2">
+                1. Income (Sales Revenue)
               </h4>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-700">Gross Sales Income (Billed Invoices)</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(pnlData.saleIncome)}</span>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1">
+                  <span className="text-[#17212B]">Income from Sales</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(pnlData.totalRevenue)}</span>
+                </div>
               </div>
-              <div className="flex justify-between pt-2 border-t border-slate-200 font-bold">
-                <span className="text-slate-900">Total Revenue:</span>
-                <span className="font-mono text-emerald-700">{formatCurrency(pnlData.totalRevenue)}</span>
+              <div className="pt-3 border-t-2 border-[#D8E1E8] flex justify-between items-center text-xs font-bold">
+                <span className="text-[#17212B]">Total Income:</span>
+                <span className="font-mono text-base text-[#18794E]">{formatCurrency(pnlData.totalRevenue)}</span>
               </div>
             </div>
 
-            {/* Procurement / COGS */}
-            <div className="bg-[#FBFBFB] p-4 rounded-xl border border-slate-200 space-y-2">
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1">
-                2. Cost of Procurement / COGS
+            {/* Right: Expenses */}
+            <div className="bg-[#FAFAF8] p-5 rounded-2xl border border-[#E3E7EA] space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#667482] border-b border-[#E3E7EA] pb-2">
+                2. Expenses (Purchases & Operations)
               </h4>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-700">Vendor Procurement Expense</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(pnlData.purchaseExpense)}</span>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1">
+                  <span className="text-[#17212B]">Purchase Expense (COGS)</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(pnlData.purchaseExpense)}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#17212B]">Other Operating Expenses</span>
+                  <span className="font-mono font-bold text-[#0B2A4A]">{formatCurrency(pnlData.operatingExpenses || 0)}</span>
+                </div>
               </div>
-              <div className="flex justify-between pt-2 border-t border-slate-200 font-bold">
-                <span className="text-slate-900">Total Procurement Expense:</span>
-                <span className="font-mono text-amber-700">{formatCurrency(pnlData.purchaseExpense)}</span>
+              <div className="pt-3 border-t-2 border-[#D8E1E8] flex justify-between items-center text-xs font-bold">
+                <span className="text-[#17212B]">Total Expenses:</span>
+                <span className="font-mono text-base text-[#B42318]">{formatCurrency(pnlData.purchaseExpense + (pnlData.operatingExpenses || 0))}</span>
               </div>
             </div>
+          </div>
 
-            {/* Net Profit Summary */}
-            <div className="p-5 bg-[#C6E7FF]/40 rounded-2xl border border-[#9BD5FF] flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Net Operating Profit</h4>
-                <p className="text-[11px] text-slate-600">Surplus after deducting all procurement expenses</p>
-              </div>
-              <span className={`text-xl font-bold font-mono ${pnlData.netProfit >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
-                {formatCurrency(pnlData.netProfit)}
-              </span>
-            </div>
+          <div className="p-4 rounded-xl bg-[#EEF4F8] border border-[#D8E1E8] flex items-center justify-between">
+            <span className="text-sm font-bold text-[#0B2A4A]">Net Income:</span>
+            <span className={`text-xl font-bold font-mono ${pnlData.netProfit >= 0 ? 'text-[#18794E]' : 'text-[#B42318]'}`}>
+              {formatCurrency(pnlData.netProfit)}
+            </span>
           </div>
         </div>
       )}
 
-      {/* REPORT 3: STOCK VALUATION */}
-      {activeReport === 'stock' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+      {/* REPORT 3: BUDGET REPORT */}
+      {activeReport === 'budget' && (
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">Inventory Stock Valuation</h3>
-              <p className="text-xs text-slate-500">Available physical stock multiplied by unit acquisition cost</p>
+              <h3 className="text-base font-bold text-[#0B2A4A] font-display">Department Budget Variance Report</h3>
+              <p className="text-xs text-[#667482]">Committed Planned vs Achieved Actuals from MySQL Invoices & Bills</p>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-bold">
                 <tr>
-                  <th className="py-3 px-4">SKU / ID</th>
-                  <th className="py-3 px-4">Product Name</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4 text-center">Available Units</th>
-                  <th className="py-3 px-4 text-right">Unit Cost (₹)</th>
-                  <th className="py-3 px-4 text-right">Total Asset Valuation (₹)</th>
+                  <th className="p-4">Budget Name</th>
+                  <th className="p-4">Period</th>
+                  <th className="p-4 text-right">Committed</th>
+                  <th className="p-4 text-right">Achieved</th>
+                  <th className="p-4 text-right">Variance</th>
+                  <th className="p-4 text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {stockReportData.map((p) => (
-                  <tr key={p.id} className="hover:bg-[#D4F6FF]/20">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{p.id}</td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">{p.name}</td>
-                    <td className="py-3.5 px-4 text-slate-500">{p.category}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                        p.isLowStock ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
-                      }`}>
-                        {p.availableStock} units
+              <tbody className="divide-y divide-[#E3E7EA]/60">
+                {budgetReportData.map((b) => (
+                  <tr key={b.id} className="hover:bg-[#FAFAF8] transition-colors">
+                    <td className="p-4 font-bold text-[#0B2A4A]">{b.name}</td>
+                    <td className="p-4 text-[#667482]">{b.period_start} → {b.period_end}</td>
+                    <td className="p-4 text-right font-mono font-bold text-[#0B2A4A]">{formatCurrency(b.planned_amount || b.committedAmount)}</td>
+                    <td className="p-4 text-right font-mono font-bold text-[#C98232]">{formatCurrency(b.achieved_amount || b.achievedAmount)}</td>
+                    <td className="p-4 text-right font-mono font-bold text-[#18794E]">{formatCurrency((b.planned_amount || 0) - (b.achieved_amount || 0))}</td>
+                    <td className="p-4 text-center">
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8]">
+                        {b.status || 'Active'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-slate-600">{formatCurrency(p.costPrice)}</td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">{formatCurrency(p.totalValuation)}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-[#FBFBFB] border-t-2 border-slate-300 font-bold text-xs">
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* REPORT 4: TRIAL BALANCE */}
+      {activeReport === 'trial-balance' && (
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
+            <div>
+              <h3 className="text-base font-bold text-[#0B2A4A] font-display">Trial Balance Statement</h3>
+              <p className="text-xs text-[#667482]">Complete verification of Total Debits vs Total Credits • As of {trialBalanceData?.asOfDate || 'Today'}</p>
+            </div>
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+              trialBalanceData?.isBalanced ? 'bg-[#EAF7F0] text-[#18794E] border-[#A3E6C0]' : 'bg-[#FDECEC] text-[#B42318] border-[#F8B4B4]'
+            }`}>
+              {trialBalanceData?.isBalanced ? '✓ Double-Entry Invariant Satisfied' : 'Discrepancy'}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-bold">
                 <tr>
-                  <td colSpan="5" className="py-3 px-4 text-right text-slate-700">Total Inventory Asset:</td>
-                  <td className="py-3 px-4 text-right font-mono text-slate-900 text-sm">
-                    {formatCurrency(stockReportData.reduce((s, p) => s + p.totalValuation, 0))}
-                  </td>
+                  <th className="p-4">Account ID</th>
+                  <th className="p-4">Account Name</th>
+                  <th className="p-4">Classification</th>
+                  <th className="p-4 text-right">Debit Balance (₹)</th>
+                  <th className="p-4 text-right">Credit Balance (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E3E7EA]/60">
+                {(!trialBalanceData?.rows || trialBalanceData.rows.length === 0) ? (
+                  <tr>
+                    <td colSpan="5" className="p-8 text-center text-[#8A96A3]">
+                      No accounting entries available for the selected period.
+                    </td>
+                  </tr>
+                ) : (
+                  trialBalanceData.rows.map((row, idx) => (
+                    <tr key={row.id || idx} className="hover:bg-[#FAFAF8] transition-colors">
+                      <td className="p-4 font-mono font-bold text-[#0B2A4A]">{row.code || `COA-100${row.id}`}</td>
+                      <td className="p-4 font-semibold text-[#17212B]">{row.name || row.account_name}</td>
+                      <td className="p-4 text-[#667482]">{row.type || row.account_type}</td>
+                      <td className="p-4 text-right font-mono font-bold text-[#17212B]">
+                        {Number(row.debit) > 0 ? formatCurrency(row.debit) : '—'}
+                      </td>
+                      <td className="p-4 text-right font-mono font-bold text-[#17212B]">
+                        {Number(row.credit) > 0 ? formatCurrency(row.credit) : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot className="bg-[#EEF4F8]/70 border-t-2 border-[#D8E1E8] font-bold text-xs">
+                <tr>
+                  <td colSpan="3" className="p-4 text-[#0B2A4A] font-bold">Grand Totals:</td>
+                  <td className="p-4 text-right font-mono text-[#0B2A4A] text-sm">{formatCurrency(trialBalanceData?.totalDebit ?? 0)}</td>
+                  <td className="p-4 text-right font-mono text-[#0B2A4A] text-sm">{formatCurrency(trialBalanceData?.totalCredit ?? 0)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -301,41 +376,37 @@ export default function FinancialReports() {
         </div>
       )}
 
-      {/* REPORT 4: BUDGET REPORT */}
-      {activeReport === 'budget' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+      {/* REPORT 5: STOCK VALUATION */}
+      {activeReport === 'stock' && (
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">Department Budget vs Actual</h3>
-              <p className="text-xs text-slate-500">Fiscal period appropriations compared with recorded operating expenses</p>
+              <h3 className="text-base font-bold text-[#0B2A4A] font-display">Inventory Stock Valuation</h3>
+              <p className="text-xs text-[#667482]">Real-time stock on hand valuation based on unit cost</p>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-bold">
                 <tr>
-                  <th className="py-3 px-4">Budget Name</th>
-                  <th className="py-3 px-4">Period</th>
-                  <th className="py-3 px-4">Responsible</th>
-                  <th className="py-3 px-4 text-right">Planned (₹)</th>
-                  <th className="py-3 px-4 text-right">Actual Spent (₹)</th>
-                  <th className="py-3 px-4 text-right">Variance (₹)</th>
+                  <th className="p-4">Product Name</th>
+                  <th className="p-4">Category</th>
+                  <th className="p-4 text-right">Available Stock</th>
+                  <th className="p-4 text-right">Unit Cost</th>
+                  <th className="p-4 text-right">Sales Price</th>
+                  <th className="p-4 text-right">Total Valuation</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {budgetReportData.map((b) => (
-                  <tr key={b.id} className="hover:bg-[#D4F6FF]/20">
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">{b.name}</td>
-                    <td className="py-3.5 px-4 text-slate-500">{b.periodStart} to {b.periodEnd}</td>
-                    <td className="py-3.5 px-4 text-slate-700">{b.responsiblePerson}</td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">{formatCurrency(b.plannedAmount)}</td>
-                    <td className="py-3.5 px-4 text-right font-mono text-slate-600">{formatCurrency(b.actualSpent)}</td>
-                    <td className={`py-3.5 px-4 text-right font-mono font-bold ${
-                      b.variance >= 0 ? 'text-emerald-700' : 'text-rose-700'
-                    }`}>
-                      {formatCurrency(b.variance)}
-                    </td>
+              <tbody className="divide-y divide-[#E3E7EA]/60">
+                {stockReportData.map((item) => (
+                  <tr key={item.id} className="hover:bg-[#FAFAF8] transition-colors">
+                    <td className="p-4 font-bold text-[#0B2A4A]">{item.name}</td>
+                    <td className="p-4 text-[#667482]">{item.category}</td>
+                    <td className="p-4 text-right font-mono font-bold text-[#17212B]">{item.availableStock}</td>
+                    <td className="p-4 text-right font-mono text-[#667482]">{formatCurrency(item.costPrice)}</td>
+                    <td className="p-4 text-right font-mono text-[#667482]">{formatCurrency(item.salesPrice)}</td>
+                    <td className="p-4 text-right font-mono font-bold text-[#18794E]">{formatCurrency(item.totalValuation)}</td>
                   </tr>
                 ))}
               </tbody>

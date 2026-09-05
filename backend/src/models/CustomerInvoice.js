@@ -43,6 +43,14 @@ const CustomerInvoice = sequelize.define('CustomerInvoice', {
     allowNull: false,
     defaultValue: 'unpaid',
   },
+  invoice_number: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  analytic_account_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,

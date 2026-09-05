@@ -4,6 +4,43 @@ const { sequelize } = require('./models');
 const { ensureDatabaseExists } = require('./config/database');
 const { seedDatabase } = require('./utils/seedData');
 
+async function ensureSchemaColumns() {
+  const columnsToAdd = [
+    { table: 'budgets', column: 'status', def: "VARCHAR(20) NOT NULL DEFAULT 'draft'" },
+    { table: 'budgets', column: 'revision_of_id', def: 'INT DEFAULT NULL' },
+    { table: 'budgets', column: 'revised_budget_id', def: 'INT DEFAULT NULL' },
+    { table: 'customer_invoices', column: 'invoice_number', def: 'VARCHAR(50) DEFAULT NULL' },
+    { table: 'customer_invoices', column: 'analytic_account_id', def: 'INT DEFAULT NULL' },
+    { table: 'vendor_bills', column: 'bill_number', def: 'VARCHAR(50) DEFAULT NULL' },
+    { table: 'vendor_bills', column: 'analytic_account_id', def: 'INT DEFAULT NULL' },
+    { table: 'sales_orders', column: 'order_number', def: 'VARCHAR(50) DEFAULT NULL' },
+    { table: 'sales_orders', column: 'analytic_account_id', def: 'INT DEFAULT NULL' },
+    { table: 'purchase_orders', column: 'order_number', def: 'VARCHAR(50) DEFAULT NULL' },
+    { table: 'purchase_orders', column: 'analytic_account_id', def: 'INT DEFAULT NULL' },
+    { table: 'journal_items', column: 'partner_id', def: 'INT DEFAULT NULL' },
+  ];
+
+  for (const col of columnsToAdd) {
+    try {
+      const [results] = await sequelize.query(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+          AND TABLE_NAME = '${col.table}' 
+          AND COLUMN_NAME = '${col.column}'
+      `);
+      if (results.length === 0) {
+        await sequelize.query(`ALTER TABLE \`${col.table}\` ADD COLUMN \`${col.column}\` ${col.def};`);
+        // eslint-disable-next-line no-console
+        console.log(`[Database] Auto-migrated missing column \`${col.column}\` on table \`${col.table}\`.`);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[Database] Schema column verification note on ${col.table}.${col.column}:`, err.message);
+    }
+  }
+}
+
 async function startServer() {
   try {
     // 1. Ensure database exists in XAMPP/MySQL
@@ -18,6 +55,9 @@ async function startServer() {
     await sequelize.sync({ alter: false });
     // eslint-disable-next-line no-console
     console.log('[Database] Schema verified and synchronized.');
+
+    // 2.1 Auto-migrate any new columns (budgets status, revision IDs, sequence numbers, etc.)
+    await ensureSchemaColumns();
 
     // 3. Auto-seed initial CoA, Journals, and Admin/Test accounts if empty
     await seedDatabase();

@@ -34,6 +34,19 @@ const Budget = sequelize.define('Budget', {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
+  status: {
+    type: DataTypes.ENUM('draft', 'confirmed', 'revised', 'cancelled'),
+    allowNull: false,
+    defaultValue: 'draft',
+  },
+  revision_of_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  revised_budget_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 }, {
   tableName: 'budgets',
   timestamps: true,

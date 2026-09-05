@@ -90,6 +90,7 @@ class AccountingService {
 
       return {
         account_id: item.account_id,
+        partner_id: item.partner_id || null,
         debit,
         credit,
         description: item.description || reference || null,
@@ -160,12 +161,14 @@ class AccountingService {
       items: [
         {
           account_id: debtorsAccount.id,
+          partner_id: invoice.customer_id || null,
           debit: totalAmt,
           credit: 0,
           description: `Receivable from Customer #${invoice.customer_id} (Invoice #${invoice.id})`,
         },
         {
           account_id: saleIncomeAccount.id,
+          partner_id: invoice.customer_id || null,
           debit: 0,
           credit: totalAmt,
           description: `Revenue for Invoice #${invoice.id}`,
@@ -212,12 +215,14 @@ class AccountingService {
       items: [
         {
           account_id: purchaseExpenseAccount.id,
+          partner_id: bill.vendor_id || null,
           debit: totalAmt,
           credit: 0,
           description: `Procurement expense for Bill #${bill.id} from Vendor #${bill.vendor_id}`,
         },
         {
           account_id: creditorsAccount.id,
+          partner_id: bill.vendor_id || null,
           debit: 0,
           credit: totalAmt,
           description: `Payable to Vendor #${bill.vendor_id} (Bill #${bill.id})`,
@@ -252,6 +257,7 @@ class AccountingService {
 
     if (payment.customer_invoice_id) {
       // Customer Receipt
+      const invoice = await CustomerInvoice.findByPk(payment.customer_invoice_id, { transaction });
       const debtorsAccount = await AccountingService.getAccountByName('Debtors', 'asset', transaction);
       const ref = `Payment#${payment.id} (CustomerInvoice#${payment.customer_invoice_id})`;
 
@@ -263,12 +269,14 @@ class AccountingService {
         items: [
           {
             account_id: liquidityAccount.id,
+            partner_id: invoice?.customer_id || null,
             debit: amount,
             credit: 0,
             description: `Payment received via ${payment.method.toUpperCase()} for Invoice #${payment.customer_invoice_id}`,
           },
           {
             account_id: debtorsAccount.id,
+            partner_id: invoice?.customer_id || null,
             debit: 0,
             credit: amount,
             description: `Settlement of Debtors for Invoice #${payment.customer_invoice_id}`,
@@ -280,6 +288,7 @@ class AccountingService {
 
     if (payment.vendor_bill_id) {
       // Vendor Payout
+      const bill = await VendorBill.findByPk(payment.vendor_bill_id, { transaction });
       const creditorsAccount = await AccountingService.getAccountByName('Creditors', 'liability', transaction);
       const ref = `Payment#${payment.id} (VendorBill#${payment.vendor_bill_id})`;
 
@@ -291,12 +300,14 @@ class AccountingService {
         items: [
           {
             account_id: creditorsAccount.id,
+            partner_id: bill?.vendor_id || null,
             debit: amount,
             credit: 0,
             description: `Settlement of Creditors for Bill #${payment.vendor_bill_id}`,
           },
           {
             account_id: liquidityAccount.id,
+            partner_id: bill?.vendor_id || null,
             debit: 0,
             credit: amount,
             description: `Payment disbursed via ${payment.method.toUpperCase()} for Bill #${payment.vendor_bill_id}`,

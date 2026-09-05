@@ -1,4 +1,4 @@
-const { Journal, JournalEntry, JournalItem, ChartOfAccount, User } = require('../models');
+const { Journal, JournalEntry, JournalItem, ChartOfAccount, User, Contact } = require('../models');
 const ApiResponse = require('../utils/response');
 const AccountingService = require('../services/accounting.service');
 const { logAudit } = require('../middleware/audit.middleware');
@@ -83,7 +83,10 @@ class JournalController {
           {
             model: JournalItem,
             as: 'items',
-            include: [{ model: ChartOfAccount, as: 'account' }],
+            include: [
+              { model: ChartOfAccount, as: 'account' },
+              { model: Contact, as: 'partner', attributes: ['id', 'name', 'email', 'mobile'] },
+            ],
           },
         ],
       });

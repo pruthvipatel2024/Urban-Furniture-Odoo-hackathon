@@ -104,13 +104,22 @@ export const api = {
 
   // Auth
   auth: {
-    login: async (email, password) => {
-      const res = await ApiClient.post('/auth/login', { email, password });
+    login: async (identifier, password) => {
+      const res = await ApiClient.post('/auth/login', { loginId: identifier, email: identifier, password });
       if (res.data?.token) {
         ApiClient.setToken(res.data.token);
       }
       return res;
     },
+    register: async (data) => {
+      const res = await ApiClient.post('/auth/register', data);
+      if (res.data?.token) {
+        ApiClient.setToken(res.data.token);
+      }
+      return res;
+    },
+    forgotPassword: (identifier) => ApiClient.post('/auth/forgot-password', { identifier }),
+    resetPassword: (data) => ApiClient.post('/auth/reset-password', data),
     me: () => ApiClient.get('/auth/me'),
     changePassword: (oldPassword, newPassword) => ApiClient.post('/auth/change-password', { oldPassword, newPassword }),
     logout: async () => {
@@ -210,6 +219,10 @@ export const api = {
     getById: (id) => ApiClient.get(`/budgets/${id}`),
     create: (data) => ApiClient.post('/budgets', data),
     update: (id, data) => ApiClient.put(`/budgets/${id}`, data),
+    confirm: (id) => ApiClient.post(`/budgets/${id}/confirm`),
+    cancel: (id) => ApiClient.post(`/budgets/${id}/cancel`),
+    revise: (id, data) => ApiClient.post(`/budgets/${id}/revise`, data),
+    getTransactions: (id) => ApiClient.get(`/budgets/${id}/transactions`),
     delete: (id) => ApiClient.delete(`/budgets/${id}`),
     getAnalytics: () => ApiClient.get('/budgets/analytic-accounts'),
     createAnalytic: (data) => ApiClient.post('/budgets/analytic-accounts', data),

@@ -12,7 +12,11 @@ import {
   ShieldCheck,
   Package,
   Layers,
-  Scale
+  Scale,
+  PieChart,
+  FileText,
+  ListOrdered,
+  BookOpen
 } from 'lucide-react';
 
 export default function Dashboard({
@@ -21,8 +25,13 @@ export default function Dashboard({
   onOpenPaymentModal
 }) {
   const {
+    dashboardData,
+    salesOrders,
     invoices,
+    purchaseOrders,
     vendorBills,
+    budgets,
+    journalEntries,
     products,
     pnlData,
     balanceSheetData,
@@ -32,319 +41,475 @@ export default function Dashboard({
     formatCurrency
   } = useAccounting();
 
-  const totalRevenue = pnlData.totalRevenue || 0;
-  const totalPurchases = pnlData.purchaseExpense || 0;
-  const netProfit = pnlData.netProfit || 0;
-  const totalReceivables = balanceSheetData.debtorsAcc || 0;
-  const totalPayables = balanceSheetData.creditorsAcc || 0;
-  const totalLiquid = liquidBalances.totalLiquid || 0;
-  const inventoryValuation = balanceSheetData.inventoryValuation || 0;
+  // 1. Sales Calculations from live DB
+  const salesAllCount = salesOrders.length;
+  const salesConfirmedCount = salesOrders.filter(so => (so.normalizedStatus || (so.status || '').toLowerCase()) === 'confirmed' || (so.normalizedStatus || (so.status || '').toLowerCase()) === 'invoiced').length;
+  const salesDraftCount = salesOrders.filter(so => (so.normalizedStatus || (so.status || '').toLowerCase()) === 'draft').length;
 
-  const lowStockProducts = stockReportData.filter(p => p.isLowStock);
+  // 2. Purchase Calculations from live DB
+  const purchaseAllCount = purchaseOrders.length;
+  const purchaseConfirmedCount = purchaseOrders.filter(po => ['confirmed', 'received', 'billed'].includes(po.normalizedStatus || (po.status || '').toLowerCase())).length;
+  const purchaseDraftCount = purchaseOrders.filter(po => (po.normalizedStatus || (po.status || '').toLowerCase()) === 'draft').length;
+
+  // 3. Budget Calculations from live DB
+  const totalBudgetsCount = budgets.filter(b => ['confirmed', 'draft', 'revised'].includes(b.normalizedStatus || (b.status || '').toLowerCase())).length;
+  const totalCommitted = budgets.filter(b => (b.normalizedStatus || (b.status || '').toLowerCase()) !== 'cancelled').reduce((acc, b) => acc + Number(b.committedAmount ?? b.plannedAmount ?? 0), 0);
+  const totalAchieved = budgets.filter(b => (b.normalizedStatus || (b.status || '').toLowerCase()) !== 'cancelled').reduce((acc, b) => acc + Number(b.achievedAmount ?? 0), 0);
+
+  // 4. Accounts Calculations from authoritative backend or live DB
+  const postedEntriesCount = Number(dashboardData?.kpi?.postedEntriesCount ?? journalEntries.length);
+
+  // Real inventory low-stock data check
+  const lowStockProducts = (stockReportData || []).filter(p => p.isLowStock);
   const recentInvoices = [...invoices].slice(0, 5);
   const recentBills = [...vendorBills].slice(0, 5);
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner with Clean Light SaaS Styling */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl text-slate-800 shadow-xs border border-slate-200 relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-80 h-80 bg-[#C6E7FF]/30 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="space-y-8 lg:space-y-10">
+      {/* ========================================================================= */}
+      {/* 1. HERO HEADER SECTION                                                    */}
+      {/* ========================================================================= */}
+      <div className="bg-white p-7 sm:p-8 lg:p-9 rounded-3xl text-[#17212B] shadow-xs border border-[#E3E7EA] relative overflow-hidden min-h-[120px] sm:min-h-[140px] flex flex-col justify-center">
+        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-96 h-96 bg-[#F8F0E6]/60 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="relative z-10 space-y-5">
-          {/* Header Top Row: Logo + Badges + Title */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 rounded-2xl bg-white p-1 flex items-center justify-center shadow-xs border border-slate-200 shrink-0">
-                <img
-                  src="/logo.png"
-                  alt="Urban Furniture Official Logo"
-                  className="w-full h-full object-contain rounded-xl"
-                />
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#10497D] bg-[#C6E7FF] px-2.5 py-0.5 rounded-full border border-[#9BD5FF]/40 font-mono">
-                    ERP Accounting
-                  </span>
-                  <span className="text-[10px] font-semibold text-emerald-700 flex items-center space-x-1 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>Double-Entry Balanced</span>
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 font-display">
-                  Urban Furniture ERP Workspace
-                </h1>
-              </div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center space-x-5">
+            <div className="w-14 h-14 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xs border border-[#E3E7EA] shrink-0">
+              <img
+                src="/logo.png"
+                alt="Urban Furniture Logo"
+                className="w-full h-full object-contain rounded-xl"
+              />
             </div>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0B2A4A] bg-[#EEF4F8] px-3 py-1 rounded-full border border-[#D8E1E8] font-mono">
+                  ERP Dashboard
+                </span>
+                <span className="text-xs font-semibold text-[#18794E] flex items-center space-x-1.5 bg-[#EAF7F0] px-3 py-1 rounded-full border border-[#18794E]/20">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Double-Entry Balanced</span>
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl lg:text-[32px] font-extrabold tracking-tight text-[#0B2A4A] font-display">
+                Urban Furniture Workspace
+              </h1>
+              <p className="text-xs sm:text-sm text-[#667482] font-normal">
+                Real-time financial status, operational workflows, and double-entry accounting overview
+              </p>
+            </div>
+          </div>
 
-            {/* Quick Action Shortcuts */}
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => {
+                setActiveTab('sales-orders');
+                onOpenNewInvoice();
+              }}
+              className="h-11 sm:h-12 px-5 py-2.5 bg-[#0B2A4A] hover:bg-[#163B63] active:bg-[#071B31] text-white text-sm font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4 text-white" />
+              <span>New Sales Order</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('purchase-orders');
+                onOpenNewBill();
+              }}
+              className="h-11 sm:h-12 px-5 py-2.5 bg-[#EEF4F8] hover:bg-[#D8E5EF] active:bg-[#ADC6DC] text-[#0B2A4A] text-sm font-bold rounded-xl transition-all shadow-xs border border-[#D8E1E8] cursor-pointer flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4 text-[#0B2A4A]" />
+              <span>New Purchase Order</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. TOP BUSINESS SUMMARY CARDS (Sales, Purchase, Budget, Account)          */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* 1. SALES SUMMARY CARD */}
+        <div className="bg-white p-6 sm:p-7 rounded-2xl border border-[#E3E7EA] shadow-xs hover:border-[#0B2A4A]/30 transition-all flex flex-col justify-between space-y-5 min-h-[250px]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2A4A] font-display leading-tight">Sales</h3>
+                  <p className="text-xs text-[#8A96A3]">Order management</p>
+                </div>
+              </div>
               <button
                 onClick={() => {
-                  setActiveTab('sales');
+                  setActiveTab('sales-orders');
                   onOpenNewInvoice();
                 }}
-                className="flex items-center space-x-1.5 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-xs border border-[#9BD5FF]/40 cursor-pointer"
+                className="text-xs font-bold bg-[#0B2A4A] hover:bg-[#163B63] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
               >
-                <Plus className="w-3.5 h-3.5 text-slate-900" />
-                <span>New Sales Order</span>
+                + New
               </button>
+            </div>
 
+            {/* Main Dominant Metric */}
+            <div
+              onClick={() => setActiveTab('sales-orders')}
+              className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-4 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+            >
+              <p className="text-xs font-medium text-[#667482]">Total Sales Orders</p>
+              <p className="text-3xl lg:text-4xl font-extrabold font-sans text-[#0B2A4A] mt-1">{salesAllCount}</p>
+            </div>
+
+            {/* Secondary Sub-metrics (Confirmed vs Draft) */}
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div
+                onClick={() => setActiveTab('sales-orders')}
+                className="bg-[#FAFAF8] hover:bg-[#EAF7F0] p-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#18794E]">Confirmed</p>
+                <p className="text-xl font-bold font-sans text-[#18794E] mt-0.5">{salesConfirmedCount}</p>
+              </div>
+              <div
+                onClick={() => setActiveTab('sales-orders')}
+                className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#667482]">Draft</p>
+                <p className="text-xl font-bold font-sans text-[#17212B] mt-0.5">{salesDraftCount}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-[#E3E7EA] flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold text-[#0B2A4A]">
+            <button onClick={() => setActiveTab('sales-orders')} className="hover:text-[#C98232] cursor-pointer">Sales Order</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('sales-invoices')} className="hover:text-[#C98232] cursor-pointer">Sale Invoice</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('sales-receipts')} className="hover:text-[#C98232] cursor-pointer">Receipt</button>
+          </div>
+        </div>
+
+        {/* 2. PURCHASE SUMMARY CARD */}
+        <div className="bg-white p-6 sm:p-7 rounded-2xl border border-[#E3E7EA] shadow-xs hover:border-[#0B2A4A]/30 transition-all flex flex-col justify-between space-y-5 min-h-[250px]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F8F0E6] text-[#C98232] border border-[#E5B875]/40 flex items-center justify-center shrink-0">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2A4A] font-display leading-tight">Purchase</h3>
+                  <p className="text-xs text-[#8A96A3]">Vendor procurement</p>
+                </div>
+              </div>
               <button
                 onClick={() => {
-                  setActiveTab('purchases');
+                  setActiveTab('purchase-orders');
                   onOpenNewBill();
                 }}
-                className="flex items-center space-x-1.5 bg-[#D4F6FF] hover:bg-[#ACEEFF] active:bg-[#75DCFF] text-slate-900 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-xs border border-[#ACEEFF]/40 cursor-pointer"
+                className="text-xs font-bold bg-[#0B2A4A] hover:bg-[#163B63] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
               >
-                <Plus className="w-3.5 h-3.5 text-slate-900" />
-                <span>New Purchase Order</span>
+                + New
               </button>
             </div>
+
+            {/* Main Dominant Metric */}
+            <div
+              onClick={() => setActiveTab('purchase-orders')}
+              className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-4 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+            >
+              <p className="text-xs font-medium text-[#667482]">Total Purchase Orders</p>
+              <p className="text-3xl lg:text-4xl font-extrabold font-sans text-[#0B2A4A] mt-1">{purchaseAllCount}</p>
+            </div>
+
+            {/* Secondary Sub-metrics (Confirmed vs Draft) */}
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div
+                onClick={() => setActiveTab('purchase-orders')}
+                className="bg-[#FAFAF8] hover:bg-[#EAF7F0] p-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#18794E]">Confirmed</p>
+                <p className="text-xl font-bold font-sans text-[#18794E] mt-0.5">{purchaseConfirmedCount}</p>
+              </div>
+              <div
+                onClick={() => setActiveTab('purchase-orders')}
+                className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#667482]">Draft</p>
+                <p className="text-xl font-bold font-sans text-[#17212B] mt-0.5">{purchaseDraftCount}</p>
+              </div>
+            </div>
           </div>
 
-          {/* Subtitle Line */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
-            <p className="text-xs text-slate-500 font-medium">
-              Real-time synchronization with MySQL database • Live balance validations • Double-entry ledger integration
-            </p>
+          <div className="pt-3 border-t border-[#E3E7EA] flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold text-[#0B2A4A]">
+            <button onClick={() => setActiveTab('purchase-orders')} className="hover:text-[#C98232] cursor-pointer">Purchase Order</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('purchase-bills')} className="hover:text-[#C98232] cursor-pointer">Purchase Bill</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('purchase-payments')} className="hover:text-[#C98232] cursor-pointer">Payment</button>
+          </div>
+        </div>
+
+        {/* 3. BUDGET SUMMARY CARD */}
+        <div className="bg-white p-6 sm:p-7 rounded-2xl border border-[#E3E7EA] shadow-xs hover:border-[#C98232]/40 transition-all flex flex-col justify-between space-y-5 min-h-[250px]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F8F0E6] text-[#C98232] border border-[#E5B875]/40 flex items-center justify-center shrink-0">
+                  <PieChart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2A4A] font-display leading-tight">Budget</h3>
+                  <p className="text-xs text-[#8A96A3]">Analytic control</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('budgets')}
+                className="text-xs font-bold bg-[#0B2A4A] hover:bg-[#163B63] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
+              >
+                + New
+              </button>
+            </div>
+
+            {/* Main Dominant Metric */}
+            <div
+              onClick={() => setActiveTab('budgets')}
+              className="bg-[#FAFAF8] hover:bg-[#F8F0E6] p-4 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors"
+            >
+              <p className="text-xs font-medium text-[#667482]">Total Budgets</p>
+              <p className="text-3xl lg:text-4xl font-extrabold font-sans text-[#0B2A4A] mt-1">{totalBudgetsCount}</p>
+            </div>
+
+            {/* Secondary Sub-metrics (Committed & Achieved - Uncut Full Currency) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div
+                onClick={() => setActiveTab('budgets')}
+                className="bg-[#FAFAF8] hover:bg-[#F8F0E6] p-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors text-left"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#C98232]">Committed</p>
+                <p className="text-sm sm:text-base font-bold font-mono text-[#17212B] mt-1 break-words">
+                  {formatCurrency(totalCommitted)}
+                </p>
+              </div>
+              <div
+                onClick={() => setActiveTab('budgets')}
+                className="bg-[#FAFAF8] hover:bg-[#EAF7F0] p-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors text-left"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#18794E]">Achieved</p>
+                <p className="text-sm sm:text-base font-bold font-mono text-[#18794E] mt-1 break-words">
+                  {formatCurrency(totalAchieved)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-[#E3E7EA] flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold text-[#0B2A4A]">
+            <button onClick={() => setActiveTab('master-analytics')} className="hover:text-[#C98232] cursor-pointer">Analyticals</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('budgets')} className="hover:text-[#C98232] cursor-pointer">Budget</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('reports-budget')} className="hover:text-[#C98232] cursor-pointer">Reports</button>
+          </div>
+        </div>
+
+        {/* 4. ACCOUNTS & JOURNALS SUMMARY CARD */}
+        <div className="bg-white p-6 sm:p-7 rounded-2xl border border-[#E3E7EA] shadow-xs hover:border-[#0B2A4A]/30 transition-all flex flex-col justify-between space-y-5 min-h-[250px]">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] flex items-center justify-center shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2A4A] font-display leading-tight">Account</h3>
+                  <p className="text-xs text-[#8A96A3]">Liquidity & Ledger</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('journal-entries')}
+                className="text-xs font-bold bg-[#0B2A4A] hover:bg-[#163B63] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
+              >
+                + New
+              </button>
+            </div>
+
+            {/* 3 Metric Blocks (Bank, Cash, Posted Entries) */}
+            <div className="space-y-2.5">
+              <div
+                onClick={() => setActiveTab('master-coa')}
+                className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-2.5 px-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors flex items-center justify-between"
+              >
+                <span className="text-xs font-bold text-[#0B2A4A] uppercase tracking-wider">Bank A/c</span>
+                <span className="text-sm font-bold font-mono text-[#17212B]">
+                  {formatCurrency(liquidBalances.bank)}
+                </span>
+              </div>
+              <div
+                onClick={() => setActiveTab('master-coa')}
+                className="bg-[#FAFAF8] hover:bg-[#F8F0E6] p-2.5 px-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors flex items-center justify-between"
+              >
+                <span className="text-xs font-bold text-[#C98232] uppercase tracking-wider">Cash A/c</span>
+                <span className="text-sm font-bold font-mono text-[#17212B]">
+                  {formatCurrency(liquidBalances.cash)}
+                </span>
+              </div>
+              <div
+                onClick={() => setActiveTab('journal-entries')}
+                className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-2.5 px-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors flex items-center justify-between"
+              >
+                <span className="text-xs font-bold text-[#667482] uppercase tracking-wider">Posted Entries</span>
+                <span className="text-sm font-bold font-sans text-[#0B2A4A] font-mono">
+                  {postedEntriesCount}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-[#E3E7EA] flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold text-[#0B2A4A]">
+            <button onClick={() => setActiveTab('master-coa')} className="hover:text-[#C98232] cursor-pointer">Chart of Account</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('master-journals')} className="hover:text-[#C98232] cursor-pointer">Journals</button>
+            <span className="text-[#D8E1E8]">•</span>
+            <button onClick={() => setActiveTab('journal-entries')} className="hover:text-[#C98232] cursor-pointer">Entries</button>
           </div>
         </div>
       </div>
 
-      {/* Primary KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Revenue */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-[#C6E7FF] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Sales Revenue</span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-xl font-bold text-slate-900 font-mono">{formatCurrency(totalRevenue)}</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">{invoices.length} Invoices Issued</p>
-          </div>
-        </div>
-
-        {/* Total Purchases */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-[#C6E7FF] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Procurement</span>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-              <ShoppingCart className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-xl font-bold text-slate-900 font-mono">{formatCurrency(totalPurchases)}</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">{vendorBills.length} Vendor Bills Recorded</p>
-          </div>
-        </div>
-
-        {/* Net Profit */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-[#C6E7FF] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Net Operating Profit</span>
-            <div className={`p-2 rounded-xl border ${netProfit >= 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-              <Scale className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className={`text-xl font-bold font-mono ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {formatCurrency(netProfit)}
-            </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {pnlData.profitMarginPercent}% Operating Margin
-            </p>
-          </div>
-        </div>
-
-        {/* Liquid Reserves (Simulated Bank + Cash) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-[#C6E7FF] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Liquid Funds Available</span>
-            <div className="p-2 rounded-xl bg-[#D4F6FF] text-[#145B9D] border border-[#ACEEFF]">
-              <CreditCard className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-xl font-bold text-slate-900 font-mono">{formatCurrency(totalLiquid)}</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Bank: {formatCurrency(liquidBalances.bank)} • Cash: {formatCurrency(liquidBalances.cash)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Secondary Financial Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Accounts Receivable */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-            <span className="font-semibold">Accounts Receivable (Debtors)</span>
-            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">Unpaid Inflow</span>
-          </div>
-          <h4 className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(totalReceivables)}</h4>
-          <p className="text-[11px] text-slate-400 mt-1">Pending collection from customers</p>
-        </div>
-
-        {/* Accounts Payable */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-            <span className="font-semibold">Accounts Payable (Creditors)</span>
-            <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-bold">Unpaid Outflow</span>
-          </div>
-          <h4 className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(totalPayables)}</h4>
-          <p className="text-[11px] text-slate-400 mt-1">Pending payments to vendors</p>
-        </div>
-
-        {/* Stock Valuation */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-            <span className="font-semibold">Inventory Valuation</span>
-            <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-bold">Asset Value</span>
-          </div>
-          <h4 className="text-lg font-bold text-slate-900 font-mono">{formatCurrency(inventoryValuation)}</h4>
-          <p className="text-[11px] text-slate-400 mt-1">{products.length} catalog items tracked</p>
-        </div>
-      </div>
-
-      {/* Low Stock Warning Alert */}
+      {/* ========================================================================= */}
+      {/* 3. OPTIONAL REAL LOW STOCK WARNING ALERT                                  */}
+      {/* ========================================================================= */}
       {lowStockProducts.length > 0 && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+        <div className="p-5 sm:p-6 bg-[#FFF6DF] border border-[#B7791F]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start space-x-3.5">
+            <AlertCircle className="w-5 h-5 text-[#B7791F] shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-amber-900">
+              <h4 className="text-sm font-bold text-[#17212B]">
                 Low Stock Alert: {lowStockProducts.length} Product{lowStockProducts.length > 1 ? 's' : ''} Require Reordering
               </h4>
-              <p className="text-[11px] text-amber-700 mt-0.5">
+              <p className="text-xs text-[#667482] mt-1">
                 {lowStockProducts.map(p => `${p.name} (${p.availableStock} in stock)`).join(', ')}
               </p>
             </div>
           </div>
           <button
-            onClick={() => setActiveTab('purchases')}
-            className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-xs rounded-xl transition-colors shrink-0 cursor-pointer"
+            onClick={() => setActiveTab('purchase-orders')}
+            className="px-4 py-2 bg-[#C98232] hover:bg-[#A96823] text-white font-bold text-xs rounded-xl transition-colors shrink-0 cursor-pointer"
           >
             Create PO
           </button>
         </div>
       )}
 
-      {/* Recent Activity: Invoices & Vendor Bills */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* ========================================================================= */}
+      {/* 4. RECENT ACTIVITY: CUSTOMER INVOICES & VENDOR BILLS                      */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Recent Customer Invoices */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E3E7EA] shadow-xs space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">Recent Customer Invoices</h3>
-              <p className="text-[11px] text-slate-400">Sales orders billed to clients</p>
+              <h3 className="text-lg font-bold text-[#0B2A4A] font-display">Recent Customer Invoices</h3>
+              <p className="text-xs sm:text-sm text-[#8A96A3] mt-0.5">Sales orders billed to clients</p>
             </div>
             <button
-              onClick={() => setActiveTab('sales')}
-              className="text-xs font-bold text-[#1B76C7] hover:underline cursor-pointer"
+              onClick={() => setActiveTab('sales-invoices')}
+              className="text-sm font-bold text-[#0B2A4A] hover:text-[#C98232] cursor-pointer"
             >
               View All
             </button>
           </div>
 
-          {recentInvoices.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 space-y-2 bg-[#FBFBFB] rounded-xl border border-dashed border-slate-200">
-              <Package className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-xs font-medium text-slate-600">No invoices recorded yet</p>
-              <button
-                onClick={() => {
-                  setActiveTab('sales');
-                  onOpenNewInvoice();
-                }}
-                className="text-xs font-bold text-[#1B76C7] hover:underline cursor-pointer"
-              >
-                Create your first sales order
-              </button>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 text-xs">
-              {recentInvoices.map((inv) => (
-                <div key={inv.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-slate-900">{inv.id}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                        inv.status === 'Partially Paid' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                        'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}>
-                        {inv.status}
-                      </span>
+          <div className="divide-y divide-[#E3E7EA]">
+            {recentInvoices.length === 0 ? (
+              <p className="py-8 text-center text-[#8A96A3] text-sm">No customer invoices recorded yet.</p>
+            ) : (
+              recentInvoices.map((inv) => {
+                const isPaid = (inv.normalizedStatus || (inv.status || '').toLowerCase()) === 'paid' || Number(inv.amountDue ?? inv.balance ?? 0) <= 0;
+                const isPartiallyPaid = (inv.normalizedStatus || (inv.status || '').toLowerCase()) === 'partially_paid' || (Number(inv.paidAmount ?? inv.amountPaid ?? 0) > 0 && !isPaid);
+                return (
+                  <div
+                    key={inv.id}
+                    className="py-4 px-3 sm:px-4 rounded-2xl hover:bg-[#FAFAF8] transition-colors flex items-center justify-between gap-4"
+                  >
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="font-mono font-bold text-sm sm:text-base text-[#0B2A4A] truncate">
+                          {inv.invoiceNumber || inv.number}
+                        </span>
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 ${
+                          isPaid ? 'bg-[#EAF7F0] text-[#18794E]' :
+                          isPartiallyPaid ? 'bg-[#FFF6DF] text-[#B7791F]' :
+                          'bg-[#EEF4F8] text-[#667482]'
+                        }`}>
+                          {isPaid ? 'Paid' : isPartiallyPaid ? 'Partially Paid' : 'Unpaid'}
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-[#667482] truncate">{inv.customerName}</p>
                     </div>
-                    <p className="text-[11px] text-slate-500">{inv.customerName}</p>
+                    <div className="shrink-0 text-right space-y-0.5">
+                      <p className="font-mono font-bold text-sm sm:text-base text-[#17212B]">{formatCurrency(inv.total)}</p>
+                      <p className="text-xs text-[#8A96A3]">Due: {inv.dueDate || inv.date}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold font-mono text-slate-900">{formatCurrency(inv.totalAmount)}</p>
-                    <p className="text-[10px] text-slate-400">Due: {formatCurrency(inv.balance)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Recent Vendor Bills */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E3E7EA] shadow-xs space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">Recent Vendor Bills</h3>
-              <p className="text-[11px] text-slate-400">Procurement bills from suppliers</p>
+              <h3 className="text-lg font-bold text-[#0B2A4A] font-display">Recent Vendor Bills</h3>
+              <p className="text-xs sm:text-sm text-[#8A96A3] mt-0.5">Procurement bills from suppliers</p>
             </div>
             <button
-              onClick={() => setActiveTab('purchases')}
-              className="text-xs font-bold text-[#1B76C7] hover:underline cursor-pointer"
+              onClick={() => setActiveTab('purchase-bills')}
+              className="text-sm font-bold text-[#0B2A4A] hover:text-[#C98232] cursor-pointer"
             >
               View All
             </button>
           </div>
 
-          {recentBills.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 space-y-2 bg-[#FBFBFB] rounded-xl border border-dashed border-slate-200">
-              <ShoppingCart className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-xs font-medium text-slate-600">No vendor bills recorded yet</p>
-              <button
-                onClick={() => {
-                  setActiveTab('purchases');
-                  onOpenNewBill();
-                }}
-                className="text-xs font-bold text-[#1B76C7] hover:underline cursor-pointer"
-              >
-                Create your first purchase order
-              </button>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 text-xs">
-              {recentBills.map((bill) => (
-                <div key={bill.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-slate-900">{bill.id}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        bill.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                        bill.status === 'Partially Paid' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                        'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}>
-                        {bill.status}
-                      </span>
+          <div className="divide-y divide-[#E3E7EA]">
+            {recentBills.length === 0 ? (
+              <p className="py-8 text-center text-[#8A96A3] text-sm">No vendor bills recorded yet.</p>
+            ) : (
+              recentBills.map((bill) => {
+                const isPaid = (bill.normalizedStatus || (bill.status || '').toLowerCase()) === 'paid' || Number(bill.amountDue ?? bill.balance ?? 0) <= 0;
+                const isPartiallyPaid = (bill.normalizedStatus || (bill.status || '').toLowerCase()) === 'partially_paid' || (Number(bill.paidAmount ?? bill.amountPaid ?? 0) > 0 && !isPaid);
+                return (
+                  <div
+                    key={bill.id}
+                    className="py-4 px-3 sm:px-4 rounded-2xl hover:bg-[#FAFAF8] transition-colors flex items-center justify-between gap-4"
+                  >
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="font-mono font-bold text-sm sm:text-base text-[#0B2A4A] truncate">
+                          {bill.billNumber || bill.number}
+                        </span>
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0 ${
+                          isPaid ? 'bg-[#EAF7F0] text-[#18794E]' :
+                          isPartiallyPaid ? 'bg-[#FFF6DF] text-[#B7791F]' :
+                          'bg-[#EEF4F8] text-[#667482]'
+                        }`}>
+                          {isPaid ? 'Paid' : isPartiallyPaid ? 'Partially Paid' : 'Unpaid'}
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-[#667482] truncate">{bill.vendorName}</p>
                     </div>
-                    <p className="text-[11px] text-slate-500">{bill.vendorName}</p>
+                    <div className="shrink-0 text-right space-y-0.5">
+                      <p className="font-mono font-bold text-sm sm:text-base text-[#17212B]">{formatCurrency(bill.total)}</p>
+                      <p className="text-xs text-[#8A96A3]">Due: {bill.dueDate || bill.date}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold font-mono text-slate-900">{formatCurrency(bill.totalAmount)}</p>
-                    <p className="text-[10px] text-slate-400">Due: {formatCurrency(bill.balance)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>

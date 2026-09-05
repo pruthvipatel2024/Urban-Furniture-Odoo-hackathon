@@ -89,7 +89,7 @@ class PurchaseController {
    */
   static async createPurchaseOrder(req, res, next) {
     try {
-      const { vendorId, orderDate, notes, items } = req.body;
+      const { vendorId, orderDate, notes, items, analyticAccountId } = req.body;
 
       if (!vendorId || !items) {
         return ApiResponse.badRequest(res, 'Vendor ID and items array are required.');
@@ -100,6 +100,7 @@ class PurchaseController {
         orderDate,
         notes,
         items,
+        analyticAccountId,
         userId: req.user.id,
       });
 

@@ -43,6 +43,14 @@ const VendorBill = sequelize.define('VendorBill', {
     allowNull: false,
     defaultValue: 'unpaid',
   },
+  bill_number: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  analytic_account_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import StoreInvoiceModal from './StoreInvoiceModal';
 import {
@@ -14,38 +14,74 @@ import {
   Printer,
   Eye,
   FileCheck,
-  Package
+  Package,
+  ArrowLeft,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 
-export default function SalesFlow({ showCreateModal = false, setShowCreateModal }) {
+export default function SalesFlow({
+  initialSubTab = 'invoices',
+  showCreateModal = false,
+  setShowCreateModal
+}) {
   const {
     salesOrders,
     invoices,
+    payments,
     contacts,
     products,
+    analyticAccounts,
+    chartOfAccounts,
     createSalesOrder,
+    confirmSalesOrder,
     deliverGoodsSO,
     convertSOToCustomerInvoice,
+    confirmInvoice,
     setPaymentTargetDoc,
     setShowPaymentModal,
     formatCurrency,
+    setActiveTab,
     userRole
   } = useAccounting();
 
-  const [activeSubTab, setActiveSubTab] = useState('invoices'); // 'orders' | 'invoices'
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab); // 'orders' | 'invoices' | 'receipts'
+  const [selectedSOForDetail, setSelectedSOForDetail] = useState(null);
+  const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState(null);
+  const [isCreatingSO, setIsCreatingSO] = useState(false);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [selectedInvoiceForPrint, setSelectedInvoiceForPrint] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  useEffect(() => {
+    if (showCreateModal) {
+      setIsCreatingSO(true);
+      if (setShowCreateModal) setShowCreateModal(false);
+    }
+  }, [showCreateModal]);
 
   // SO Creation Form State
   const [customerId, setCustomerId] = useState('');
+  const [analyticAccountId, setAnalyticAccountId] = useState('');
   const [soDate, setSoDate] = useState(new Date().toISOString().split('T')[0]);
   const [soNotes, setSoNotes] = useState('');
   const [items, setItems] = useState([
-    { productId: '', qty: 1, unitPrice: 0, taxPercent: 18, total: 0 }
+    { productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, taxPercent: 18, total: 0 }
   ]);
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const customersList = contacts.filter(c => c.type === 'Customer' || c.type === 'Both');
+  const salesAccounts = chartOfAccounts.filter(a => a.type === 'Income' || a.type === 'Asset');
+
+  // Customer Payments / Receipts filter
+  const customerReceipts = payments.filter(p => p.type === 'Receive' || p.payment_type === 'inbound' || p.amount > 0);
 
   // Dynamic Line Item Handlers
   const handleItemChange = (index, field, value) => {
@@ -70,7 +106,7 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
   };
 
   const handleAddItemLine = () => {
-    setItems([...items, { productId: '', qty: 1, unitPrice: 0, taxPercent: 18, total: 0 }]);
+    setItems([...items, { productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, taxPercent: 18, total: 0 }]);
   };
 
   const handleRemoveItemLine = (index) => {
@@ -104,14 +140,16 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
     try {
       await createSalesOrder({
         customerId,
+        analyticAccountId: analyticAccountId || null,
         date: soDate,
         notes: soNotes,
         items: validItems
       });
 
-      setShowCreateModal(false);
+      setIsCreatingSO(false);
       setCustomerId('');
-      setItems([{ productId: '', qty: 1, unitPrice: 0, taxPercent: 18, total: 0 }]);
+      setAnalyticAccountId('');
+      setItems([{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, taxPercent: 18, total: 0 }]);
       setActiveSubTab('orders');
     } catch (err) {
       setFormError(err.message || 'Failed to create sales order.');
@@ -120,247 +158,801 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
     }
   };
 
+  // Filtered Lists
+  const filteredInvoices = invoices.filter(inv =>
+    (inv.invoiceNumber || inv.number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (inv.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredOrders = salesOrders.filter(so =>
+    (so.orderNumber || so.number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (so.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredReceipts = customerReceipts.filter(rcpt =>
+    (rcpt.number || rcpt.partnerName || rcpt.partner || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
-      {/* Sub-navigation Tabs & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setActiveSubTab('invoices')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
-              activeSubTab === 'invoices'
-                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Receipt className="w-4 h-4" />
-            <span>Customer Invoices</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white text-slate-800 border border-slate-200">
-              {invoices.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('orders')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
-              activeSubTab === 'orders'
-                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>Sales Orders</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white text-slate-800 border border-slate-200">
-              {salesOrders.length}
-            </span>
-          </button>
-        </div>
-
-        {userRole !== 'Contact' && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-1.5 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-xs border border-[#9BD5FF]/40 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Sales Order</span>
-          </button>
-        )}
-      </div>
-
-      {/* VIEW 1: CUSTOMER INVOICES */}
-      {activeSubTab === 'invoices' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+      {/* Top Sales Dedicated Header */}
+      {!isCreatingSO && !selectedSOForDetail && !selectedInvoiceForDetail && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E3E7EA] shadow-xs">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-11 h-11 rounded-xl bg-[#EEF4F8] border border-[#E3E7EA] text-[#0B2A4A] flex items-center justify-center shadow-xs shrink-0">
+              {activeSubTab === 'orders' && <TrendingUp className="w-5 h-5 text-[#C98232]" />}
+              {activeSubTab === 'invoices' && <Receipt className="w-5 h-5 text-[#0B2A4A]" />}
+              {activeSubTab === 'receipts' && <CreditCard className="w-5 h-5 text-[#0B2A4A]" />}
+            </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">Customer Invoices Register</h3>
-              <p className="text-xs text-slate-500">Invoices billed to clients with double-entry general ledger posting</p>
+              <div className="flex items-center space-x-2">
+                <h2 className="font-bold text-lg text-[#0B2A4A]">
+                  {activeSubTab === 'orders' && 'Sales Orders'}
+                  {activeSubTab === 'invoices' && 'Customer Invoices'}
+                  {activeSubTab === 'receipts' && 'Customer Receipts'}
+                </h2>
+                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-[#EEF4F8] text-[#0B2A4A] font-semibold border border-[#E3E7EA]">
+                  {activeSubTab === 'orders' && `${salesOrders.length} Orders`}
+                  {activeSubTab === 'invoices' && `${invoices.length} Invoices`}
+                  {activeSubTab === 'receipts' && `${customerReceipts.length} Receipts`}
+                </span>
+              </div>
+              <p className="text-xs text-[#667482] mt-0.5">
+                {activeSubTab === 'orders' && 'Quotations, sales orders confirmation, and invoice creation workflow'}
+                {activeSubTab === 'invoices' && 'Customer invoices, dynamic receivable totals, payment tracking, and ledger posting'}
+                {activeSubTab === 'receipts' && 'Recorded customer settlements across Bank and Cash liquid accounts'}
+              </p>
             </div>
           </div>
 
-          {invoices.length === 0 ? (
-            <div className="p-12 text-center text-slate-500 space-y-3">
-              <Receipt className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-semibold text-slate-700">No invoices recorded yet</p>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Create a sales order and generate an invoice to start billing your customers.
-              </p>
-              {userRole !== 'Contact' && (
+          {/* Action Button */}
+          {userRole !== 'Contact' && (
+            <div className="shrink-0">
+              {activeSubTab === 'orders' && (
                 <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-4 py-2 bg-[#C6E7FF] hover:bg-[#9BD5FF] text-slate-900 font-bold text-xs rounded-xl shadow-xs cursor-pointer inline-flex items-center space-x-1.5"
+                  onClick={() => setIsCreatingSO(true)}
+                  className="flex items-center space-x-1.5 bg-[#0B2A4A] hover:bg-[#163B63] active:bg-[#0B2A4A] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Create First Sales Order</span>
+                  <Plus className="w-4 h-4" />
+                  <span>New Sales Order</span>
+                </button>
+              )}
+
+              {activeSubTab === 'invoices' && (
+                <button
+                  onClick={() => {
+                    setActiveSubTab('orders');
+                    setIsCreatingSO(true);
+                  }}
+                  className="flex items-center space-x-1.5 bg-[#0B2A4A] hover:bg-[#163B63] active:bg-[#0B2A4A] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Invoice (via SO)</span>
+                </button>
+              )}
+
+              {activeSubTab === 'receipts' && (
+                <button
+                  onClick={() => {
+                    setPaymentTargetDoc(null);
+                    setShowPaymentModal(true);
+                  }}
+                  className="flex items-center space-x-1.5 bg-[#0B2A4A] hover:bg-[#163B63] active:bg-[#0B2A4A] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Register Receipt</span>
                 </button>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 1. SALES ORDER FULL FORM VIEW (Excalidraw Specification)                   */}
+      {/* ========================================================================= */}
+      {(isCreatingSO || selectedSOForDetail) && (
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          {/* Top Form Header with Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E3E7EA] pb-4">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  setIsCreatingSO(false);
+                  setSelectedSOForDetail(null);
+                }}
+                className="p-2 text-[#667482] hover:text-[#0B2A4A] hover:bg-[#EEF4F8] rounded-xl transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <h3 className="text-base font-bold text-[#0B2A4A]">
+                  {isCreatingSO ? 'New Sales Order' : `Sales Order — ${selectedSOForDetail.orderNumber || selectedSOForDetail.number}`}
+                </h3>
+                <p className="text-xs text-[#667482]">
+                  {isCreatingSO ? 'Enter customer and product line items' : `Created on ${selectedSOForDetail.date}`}
+                </p>
+              </div>
+            </div>
+
+            {/* Contextual Action Buttons */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setIsCreatingSO(false);
+                  setSelectedSOForDetail(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl border border-[#E3E7EA] text-[#667482] hover:bg-[#FAFAF8] text-xs font-semibold transition-all cursor-pointer"
+              >
+                Back
+              </button>
+
+              {selectedSOForDetail && selectedSOForDetail.status === 'draft' && (
+                <button
+                  onClick={async () => {
+                    await confirmSalesOrder(selectedSOForDetail.id);
+                    setSelectedSOForDetail(prev => ({ ...prev, status: 'confirmed' }));
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-[#18794E] hover:bg-[#146340] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                >
+                  Confirm Order
+                </button>
+              )}
+
+              {selectedSOForDetail && selectedSOForDetail.status === 'confirmed' && (
+                <button
+                  onClick={async () => {
+                    await convertSOToCustomerInvoice(selectedSOForDetail.id);
+                    setSelectedSOForDetail(null);
+                    setActiveSubTab('invoices');
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer flex items-center space-x-1.5"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Create Invoice</span>
+                </button>
+              )}
+
+              {isCreatingSO && (
+                <button
+                  onClick={handleSubmitSO}
+                  disabled={isSubmitting}
+                  className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                >
+                  {isSubmitting ? 'Saving...' : 'Confirm'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {formError && (
+            <div className="p-3.5 bg-[#FDECEC] border border-[#B42318]/30 rounded-xl text-[#B42318] text-xs flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          {/* Form Header Fields Grid */}
+          {isCreatingSO ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#17212B] mb-1.5">SO No. (Auto Generated)</label>
+                <input
+                  type="text"
+                  disabled
+                  value="S0000X (Auto)"
+                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-[#E3E7EA] rounded-xl text-xs text-[#8A96A3] font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#17212B] mb-1.5">Customer Name *</label>
+                <select
+                  value={customerId}
+                  onChange={(e) => setCustomerId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E3E7EA] rounded-xl text-xs text-[#17212B] outline-none focus:border-[#0B2A4A] focus:ring-2 focus:ring-[#EEF4F8]"
+                >
+                  <option value="">Select Customer Contact</option>
+                  {customersList.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.email || 'No email'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#17212B] mb-1.5">SO Date</label>
+                <input
+                  type="date"
+                  value={soDate}
+                  onChange={(e) => setSoDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E3E7EA] rounded-xl text-xs text-[#17212B] outline-none focus:border-[#0B2A4A] focus:ring-2 focus:ring-[#EEF4F8]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#17212B] mb-1.5">Budget Analytics (Optional)</label>
+                <select
+                  value={analyticAccountId}
+                  onChange={(e) => setAnalyticAccountId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#E3E7EA] rounded-xl text-xs text-[#17212B] outline-none focus:border-[#0B2A4A] focus:ring-2 focus:ring-[#EEF4F8]"
+                >
+                  <option value="">Select Analytic Account</option>
+                  {analyticAccounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.type})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#FAFAF8] p-4 rounded-xl border border-[#E3E7EA] text-xs">
+              <div>
+                <span className="text-[#667482] font-semibold block">SO Number</span>
+                <span className="font-mono font-bold text-[#0B2A4A] text-sm">{selectedSOForDetail.orderNumber || selectedSOForDetail.number}</span>
+              </div>
+              <div>
+                <span className="text-[#667482] font-semibold block">Customer Name</span>
+                <span className="font-bold text-[#17212B]">{selectedSOForDetail.customerName}</span>
+              </div>
+              <div>
+                <span className="text-[#667482] font-semibold block">SO Date</span>
+                <span className="text-[#667482]">{selectedSOForDetail.date}</span>
+              </div>
+              <div>
+                <span className="text-[#667482] font-semibold block">Status</span>
+                <span className={`inline-block mt-0.5 text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                  selectedSOForDetail.status === 'invoiced' ? 'bg-[#EAF7F0] text-[#18794E] border border-[#18794E]/20' :
+                  selectedSOForDetail.status === 'confirmed' ? 'bg-[#EAF3F9] text-[#245B86] border border-[#245B86]/20' :
+                  'bg-[#EEF4F8] text-[#667482] border border-[#E3E7EA]'
+                }`}>
+                  {selectedSOForDetail.status}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Line Items Table */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#667482]">Order Lines</h4>
+            <div className="border border-[#E3E7EA] rounded-xl overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-semibold tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Invoice #</th>
-                    <th className="py-3 px-4">Customer</th>
-                    <th className="py-3 px-4">Invoice Date</th>
-                    <th className="py-3 px-4">Due Date</th>
-                    <th className="py-3 px-4 text-right">Total Amount</th>
-                    <th className="py-3 px-4 text-right">Balance Due</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                    <th className="p-3 w-12">Sr.</th>
+                    <th className="p-3">Product</th>
+                    <th className="p-3">Chart of Accounts</th>
+                    <th className="p-3">Budget Analytics</th>
+                    <th className="p-3 w-20 text-right">Qty</th>
+                    <th className="p-3 w-28 text-right">Unit Price</th>
+                    <th className="p-3 w-28 text-right">Total</th>
+                    {isCreatingSO && <th className="p-3 w-10"></th>}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-[#D4F6FF]/20 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900 font-mono">{inv.id}</td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-semibold text-slate-800">{inv.customerName}</p>
-                        <p className="text-[11px] text-slate-400">{inv.customerEmail}</p>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600">{inv.date}</td>
-                      <td className="py-3.5 px-4 text-slate-600">{inv.dueDate}</td>
-                      <td className="py-3.5 px-4 text-right font-bold font-mono text-slate-900">
-                        {formatCurrency(inv.totalAmount)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold font-mono text-[#145B9D]">
-                        {formatCurrency(inv.balance)}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                          inv.status === 'Paid'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : inv.status === 'Partially Paid'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end space-x-1.5">
-                          <button
-                            onClick={() => setSelectedInvoiceForPrint(inv)}
-                            title="View & Print Official Invoice"
-                            className="p-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                <tbody className="divide-y divide-[#E3E7EA]/60">
+                  {isCreatingSO ? (
+                    items.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#FAFAF8]/50">
+                        <td className="p-3 text-[#8A96A3] font-mono">{idx + 1}</td>
+                        <td className="p-3 min-w-[180px]">
+                          <select
+                            value={item.productId}
+                            onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
+                            className="w-full p-2 bg-white border border-[#E3E7EA] rounded-lg text-xs text-[#17212B]"
                           >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
+                            <option value="">Select Product</option>
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>{p.name} (₹{p.salesPrice})</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3 min-w-[140px]">
+                          <select
+                            value={item.chartOfAccountId}
+                            onChange={(e) => handleItemChange(idx, 'chartOfAccountId', e.target.value)}
+                            className="w-full p-2 bg-white border border-[#E3E7EA] rounded-lg text-xs text-[#17212B]"
+                          >
+                            <option value="">Sales Revenue A/c</option>
+                            {salesAccounts.map(a => (
+                              <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3 min-w-[140px]">
+                          <select
+                            value={item.analyticAccountId}
+                            onChange={(e) => handleItemChange(idx, 'analyticAccountId', e.target.value)}
+                            className="w-full p-2 bg-white border border-[#E3E7EA] rounded-lg text-xs text-[#17212B]"
+                          >
+                            <option value="">None / Inherited</option>
+                            {analyticAccounts.map(a => (
+                              <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.qty}
+                            onChange={(e) => handleItemChange(idx, 'qty', e.target.value)}
+                            className="w-20 p-2 bg-white border border-[#E3E7EA] rounded-lg text-xs text-right font-mono text-[#17212B]"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
+                            className="w-28 p-2 bg-white border border-[#E3E7EA] rounded-lg text-xs text-right font-mono text-[#17212B]"
+                          />
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-[#0B2A4A]">
+                          {formatCurrency(item.total)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItemLine(idx)}
+                              className="text-[#8A96A3] hover:text-[#B42318] cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    selectedSOForDetail.items && selectedSOForDetail.items.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#FAFAF8]/50">
+                        <td className="p-3 text-[#8A96A3] font-mono">{idx + 1}</td>
+                        <td className="p-3 font-semibold text-[#17212B]">{item.productName || item.name}</td>
+                        <td className="p-3 text-[#667482]">Sales Revenue</td>
+                        <td className="p-3 text-[#667482]">{item.analyticAccountName || 'General'}</td>
+                        <td className="p-3 text-right font-mono text-[#667482]">{item.qty || item.quantity}</td>
+                        <td className="p-3 text-right font-mono text-[#667482]">{formatCurrency(item.unitPrice || item.price)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-[#0B2A4A]">{formatCurrency(item.total)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-                          {inv.balance > 0 && (
+            {isCreatingSO && (
+              <button
+                type="button"
+                onClick={handleAddItemLine}
+                className="text-xs font-semibold text-[#C98232] hover:underline flex items-center space-x-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Product Line</span>
+              </button>
+            )}
+          </div>
+
+          {/* Totals Summary */}
+          <div className="flex justify-end pt-4 border-t border-[#E3E7EA]">
+            <div className="w-64 space-y-2 text-xs">
+              <div className="flex justify-between text-[#667482]">
+                <span>Subtotal:</span>
+                <span className="font-mono font-bold text-[#17212B]">
+                  {formatCurrency(isCreatingSO ? soSubtotal : selectedSOForDetail.total)}
+                </span>
+              </div>
+              <div className="flex justify-between text-[#667482]">
+                <span>GST (18% Included):</span>
+                <span className="font-mono font-bold text-[#17212B]">
+                  {formatCurrency(isCreatingSO ? soTaxTotal : (selectedSOForDetail.total * 0.18 / 1.18))}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-[#0B2A4A] pt-2 border-t border-[#E3E7EA]">
+                <span>Document Total:</span>
+                <span className="font-mono text-[#0B2A4A]">
+                  {formatCurrency(isCreatingSO ? soGrandTotal : selectedSOForDetail.total)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* 2. CUSTOMER INVOICE FULL FORM VIEW (Excalidraw Specification)             */}
+      {/* ========================================================================= */}
+      {selectedInvoiceForDetail && (
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+          {/* Top Form Header with Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E3E7EA] pb-4">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setSelectedInvoiceForDetail(null)}
+                className="p-2 text-[#667482] hover:text-[#0B2A4A] hover:bg-[#EEF4F8] rounded-xl transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <h3 className="text-base font-bold text-[#0B2A4A]">
+                  Customer Invoice — {selectedInvoiceForDetail.invoiceNumber || selectedInvoiceForDetail.number}
+                </h3>
+                <p className="text-xs text-[#667482]">Issued to {selectedInvoiceForDetail.customerName}</p>
+              </div>
+            </div>
+
+            {/* Contextual Action Buttons */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setSelectedInvoiceForDetail(null)}
+                className="px-3.5 py-1.5 rounded-xl border border-[#E3E7EA] text-[#667482] hover:bg-[#FAFAF8] text-xs font-semibold transition-all cursor-pointer"
+              >
+                Back
+              </button>
+
+              <button
+                onClick={() => setSelectedInvoiceForPrint(selectedInvoiceForDetail)}
+                className="px-3.5 py-1.5 rounded-xl border border-[#D8E1E8] bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] text-xs font-semibold transition-all flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Invoice</span>
+              </button>
+
+              {((selectedInvoiceForDetail.normalizedStatus || (selectedInvoiceForDetail.status || '').toLowerCase()) === 'draft') && (
+                <button
+                  onClick={async () => {
+                    await confirmInvoice(selectedInvoiceForDetail.id);
+                    setSelectedInvoiceForDetail(prev => ({ ...prev, status: 'confirmed', normalizedStatus: 'confirmed' }));
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-[#18794E] hover:bg-[#146340] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                >
+                  Confirm Invoice
+                </button>
+              )}
+
+              {((selectedInvoiceForDetail.normalizedStatus || (selectedInvoiceForDetail.status || '').toLowerCase()) !== 'paid') && Number(selectedInvoiceForDetail.amountDue ?? selectedInvoiceForDetail.balance ?? 0) > 0 && (
+                <button
+                  onClick={() => {
+                    setPaymentTargetDoc(selectedInvoiceForDetail);
+                    setShowPaymentModal(true);
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer flex items-center space-x-1.5"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Register Payment</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Invoice Header Details */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#FAFAF8] p-4 rounded-xl border border-[#E3E7EA] text-xs">
+            <div>
+              <span className="text-[#667482] font-semibold block">Customer Invoice No.</span>
+              <span className="font-mono font-bold text-[#0B2A4A] text-sm">{selectedInvoiceForDetail.invoiceNumber || selectedInvoiceForDetail.number}</span>
+            </div>
+
+            <div>
+              <span className="text-[#667482] font-semibold block">Customer Name</span>
+              <span className="font-bold text-[#17212B]">{selectedInvoiceForDetail.customerName}</span>
+            </div>
+
+            <div>
+              <span className="text-[#667482] font-semibold block">Invoice Date / Due Date</span>
+              <span className="text-[#17212B]">{selectedInvoiceForDetail.date} • Due: {selectedInvoiceForDetail.dueDate || selectedInvoiceForDetail.date}</span>
+            </div>
+
+            <div>
+              <span className="text-[#667482] font-semibold block">Originating SO</span>
+              {selectedInvoiceForDetail.originatingSoNumber || selectedInvoiceForDetail.sales_order_id ? (
+                <span className="inline-flex items-center space-x-1 text-[#18794E] bg-[#EAF7F0] px-2.5 py-0.5 rounded-full font-mono font-semibold text-[11px] border border-[#18794E]/20">
+                  <span>SO: {selectedInvoiceForDetail.originatingSoNumber || `SO-${selectedInvoiceForDetail.sales_order_id}`}</span>
+                </span>
+              ) : (
+                <span className="text-[#8A96A3] italic">Direct Invoice</span>
+              )}
+            </div>
+          </div>
+
+          {/* Invoice Line Items */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#667482]">Invoice Line Items</h4>
+            <div className="border border-[#E3E7EA] rounded-xl overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-semibold tracking-wider">
+                  <tr>
+                    <th className="p-3 w-12">Sr.</th>
+                    <th className="p-3">Product</th>
+                    <th className="p-3">Chart of Account</th>
+                    <th className="p-3">Budget Analytics</th>
+                    <th className="p-3 w-20 text-right">Qty</th>
+                    <th className="p-3 w-28 text-right">Unit Price</th>
+                    <th className="p-3 w-28 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E7EA]/60">
+                  {selectedInvoiceForDetail.items && selectedInvoiceForDetail.items.length > 0 ? (
+                    selectedInvoiceForDetail.items.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-[#FAFAF8]/50">
+                        <td className="p-3 text-[#8A96A3] font-mono">{idx + 1}</td>
+                        <td className="p-3 font-semibold text-[#17212B]">{item.productName || item.name}</td>
+                        <td className="p-3 text-[#667482]">Sales Revenue</td>
+                        <td className="p-3 text-[#667482]">{item.analyticAccountName || 'General Furniture'}</td>
+                        <td className="p-3 text-right font-mono text-[#667482]">{item.qty || item.quantity}</td>
+                        <td className="p-3 text-right font-mono text-[#667482]">{formatCurrency(item.unitPrice || item.price)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-[#0B2A4A]">{formatCurrency(item.total)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="p-3 text-[#8A96A3] font-mono">1</td>
+                      <td className="p-3 font-semibold text-[#17212B]">Commercial Furniture Supply</td>
+                      <td className="p-3 text-[#667482]">Sales Revenue</td>
+                      <td className="p-3 text-[#667482]">General Furniture</td>
+                      <td className="p-3 text-right font-mono text-[#667482]">1</td>
+                      <td className="p-3 text-right font-mono text-[#667482]">{formatCurrency(selectedInvoiceForDetail.total)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-[#0B2A4A]">{formatCurrency(selectedInvoiceForDetail.total)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Financial Summary Box */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-5 rounded-xl bg-[#EEF4F8] border border-[#E3E7EA] text-xs">
+            <div>
+              <span className="text-[#667482] font-semibold block">Total Invoice Amount</span>
+              <span className="text-base font-bold text-[#0B2A4A] font-mono">{formatCurrency(selectedInvoiceForDetail.total)}</span>
+            </div>
+            <div>
+              <span className="text-[#667482] font-semibold block">Paid Via Bank</span>
+              <span className="text-base font-bold text-[#245B86] font-mono">{formatCurrency(selectedInvoiceForDetail.paidViaBank || 0)}</span>
+            </div>
+            <div>
+              <span className="text-[#667482] font-semibold block">Paid Via Cash</span>
+              <span className="text-base font-bold text-[#18794E] font-mono">{formatCurrency(selectedInvoiceForDetail.paidViaCash || 0)}</span>
+            </div>
+            <div>
+              <span className="text-[#667482] font-semibold block">Amount Due</span>
+              <span className="text-base font-bold text-[#B42318] font-mono">
+                {formatCurrency(selectedInvoiceForDetail.amountDue !== undefined ? selectedInvoiceForDetail.amountDue : (selectedInvoiceForDetail.total - (selectedInvoiceForDetail.amountPaid || 0)))}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. LIST VIEWS (Customer Invoices, Sales Orders, Receipts)                  */}
+      {/* ========================================================================= */}
+      {!isCreatingSO && !selectedSOForDetail && !selectedInvoiceForDetail && (
+        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden">
+          {/* Search & Filter Bar */}
+          <div className="p-4 border-b border-[#E3E7EA] flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A96A3]" />
+              <input
+                type="text"
+                placeholder={
+                  activeSubTab === 'orders' ? 'Search sales orders by number, customer...' :
+                  activeSubTab === 'invoices' ? 'Search customer invoices by number, customer...' :
+                  'Search receipts by partner or number...'
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-[#FAFAF8] text-xs text-[#17212B] placeholder-[#8A96A3] border border-[#E3E7EA] rounded-xl outline-none focus:border-[#0B2A4A] focus:ring-2 focus:ring-[#EEF4F8] transition-all"
+              />
+            </div>
+          </div>
+
+          {/* TAB 1: CUSTOMER INVOICES TABLE */}
+          {activeSubTab === 'invoices' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-semibold tracking-wider">
+                  <tr>
+                    <th className="p-4">Customer Invoice No.</th>
+                    <th className="p-4">Customer Name</th>
+                    <th className="p-4">Invoice Reference</th>
+                    <th className="p-4">Invoice Date</th>
+                    <th className="p-4">Due Date</th>
+                    <th className="p-4 text-right">Total</th>
+                    <th className="p-4 text-right">Amount Due</th>
+                    <th className="p-4 text-center">Status</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E7EA]/60">
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan="9" className="p-8 text-center text-[#8A96A3]">
+                        No customer invoices found in database.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((inv) => (
+                      <tr
+                        key={inv.id}
+                        onClick={() => setSelectedInvoiceForDetail(inv)}
+                        className="hover:bg-[#FAFAF8] cursor-pointer transition-colors"
+                      >
+                        <td className="p-4 font-mono font-bold text-[#0B2A4A]">
+                          {inv.invoiceNumber || inv.number}
+                        </td>
+                        <td className="p-4 font-semibold text-[#17212B]">
+                          {inv.customerName}
+                        </td>
+                        <td className="p-4 text-[#667482]">
+                          {inv.originatingSoNumber ? `SO: ${inv.originatingSoNumber}` : (inv.reference || 'Standard')}
+                        </td>
+                        <td className="p-4 text-[#667482]">{inv.date}</td>
+                        <td className="p-4 text-[#667482]">{inv.dueDate || inv.date}</td>
+                        <td className="p-4 text-right font-mono font-bold text-[#17212B]">
+                          {formatCurrency(inv.total)}
+                        </td>
+                        <td className="p-4 text-right font-mono font-bold text-[#B42318]">
+                          {formatCurrency(inv.amountDue !== undefined ? inv.amountDue : (inv.total - (inv.amountPaid || 0)))}
+                        </td>
+                        <td className="p-4 text-center">
+                          {(() => {
+                            const isPaid = (inv.normalizedStatus || (inv.status || '').toLowerCase()) === 'paid' || Number(inv.amountDue ?? inv.balance ?? 0) <= 0;
+                            const isPartiallyPaid = (inv.normalizedStatus || (inv.status || '').toLowerCase()) === 'partially_paid' || (Number(inv.paidAmount ?? inv.amountPaid ?? 0) > 0 && !isPaid);
+                            return (
+                              <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                                isPaid ? 'bg-[#EAF7F0] text-[#18794E] border border-[#18794E]/20' :
+                                isPartiallyPaid ? 'bg-[#FFF6DF] text-[#B7791F] border border-[#B7791F]/20' :
+                                'bg-[#EEF4F8] text-[#667482] border border-[#E3E7EA]'
+                              }`}>
+                                {isPaid ? 'PAID' : isPartiallyPaid ? 'PARTIALLY PAID' : 'UNPAID'}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setSelectedInvoiceForDetail(inv)}
+                            className="p-1.5 text-[#667482] hover:text-[#0B2A4A] rounded-lg hover:bg-[#EEF4F8] cursor-pointer mr-1"
+                            title="View Invoice"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {((inv.normalizedStatus || (inv.status || '').toLowerCase()) !== 'paid') && Number(inv.amountDue ?? inv.balance ?? 0) > 0 && (
                             <button
                               onClick={() => {
                                 setPaymentTargetDoc(inv);
                                 setShowPaymentModal(true);
                               }}
-                              className="px-2.5 py-1 bg-[#C6E7FF] hover:bg-[#9BD5FF] text-slate-900 font-bold text-[11px] rounded-lg transition-colors border border-[#9BD5FF]/40 cursor-pointer flex items-center space-x-1"
+                              className="px-2.5 py-1 bg-[#0B2A4A] hover:bg-[#163B63] text-white rounded-lg font-semibold text-[11px] cursor-pointer shadow-xs"
                             >
-                              <CreditCard className="w-3 h-3" />
-                              <span>Pay Now</span>
+                              Pay
                             </button>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
-      )}
 
-      {/* VIEW 2: SALES ORDERS */}
-      {activeSubTab === 'orders' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">Sales Orders Register</h3>
-              <p className="text-xs text-slate-500">Confirmed customer orders with inventory reservation and delivery processing</p>
-            </div>
-          </div>
-
-          {salesOrders.length === 0 ? (
-            <div className="p-12 text-center text-slate-500 space-y-3">
-              <TrendingUp className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-semibold text-slate-700">No sales orders created yet</p>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Create a new sales order to begin fulfilling customer orders.
-              </p>
-            </div>
-          ) : (
+          {/* TAB 2: SALES ORDERS TABLE */}
+          {activeSubTab === 'orders' && (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-semibold tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">SO #</th>
-                    <th className="py-3 px-4">Customer</th>
-                    <th className="py-3 px-4">Order Date</th>
-                    <th className="py-3 px-4">Items</th>
-                    <th className="py-3 px-4 text-right">Total Amount</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-right">Workflow Actions</th>
+                    <th className="p-4">SO No.</th>
+                    <th className="p-4">Customer Name</th>
+                    <th className="p-4">SO Date</th>
+                    <th className="p-4 text-right">Total Amount</th>
+                    <th className="p-4 text-center">Status</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {salesOrders.map((so) => {
-                    const isDelivered = so.delivered || so.status === 'Invoiced';
-                    const isInvoiced = invoices.some(i => i.id.includes(String(so.backendId)) || (i.salesOrder && i.salesOrder.id === so.backendId));
-
-                    return (
-                      <tr key={so.id} className="hover:bg-[#D4F6FF]/20 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-900 font-mono">{so.id}</td>
-                        <td className="py-3.5 px-4 font-semibold text-slate-800">{so.customerName}</td>
-                        <td className="py-3.5 px-4 text-slate-600">{so.date}</td>
-                        <td className="py-3.5 px-4 text-slate-600">
-                          {so.items?.map(i => `${i.productName} (x${i.qty})`).join(', ') || 'General Items'}
+                <tbody className="divide-y divide-[#E3E7EA]/60">
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-[#8A96A3]">
+                        No sales orders found in database.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map((so) => (
+                      <tr
+                        key={so.id}
+                        onClick={() => setSelectedSOForDetail(so)}
+                        className="hover:bg-[#FAFAF8] cursor-pointer transition-colors"
+                      >
+                        <td className="p-4 font-mono font-bold text-[#0B2A4A]">
+                          {so.orderNumber || so.number}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-bold font-mono text-slate-900">
-                          {formatCurrency(so.totalAmount)}
+                        <td className="p-4 font-semibold text-[#17212B]">
+                          {so.customerName}
                         </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                            so.status === 'Invoiced'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                        <td className="p-4 text-[#667482]">{so.date}</td>
+                        <td className="p-4 text-right font-mono font-bold text-[#17212B]">
+                          {formatCurrency(so.total)}
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                            so.status === 'invoiced' ? 'bg-[#EAF7F0] text-[#18794E] border border-[#18794E]/20' :
+                            so.status === 'confirmed' ? 'bg-[#EAF3F9] text-[#245B86] border border-[#245B86]/20' :
+                            'bg-[#EEF4F8] text-[#667482] border border-[#E3E7EA]'
                           }`}>
                             {so.status}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end space-x-2">
-                            {/* Step 1: Deliver Goods */}
-                            {!isDelivered && (
-                              <button
-                                onClick={() => deliverGoodsSO(so.id)}
-                                className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px] rounded-lg border border-amber-200 transition-colors cursor-pointer flex items-center space-x-1"
-                              >
-                                <Truck className="w-3 h-3" />
-                                <span>Confirm Delivery</span>
-                              </button>
-                            )}
-
-                            {/* Step 2: Generate Invoice */}
-                            {!isInvoiced && (
-                              <button
-                                onClick={() => convertSOToCustomerInvoice(so.id)}
-                                className="px-3 py-1 bg-[#C6E7FF] hover:bg-[#9BD5FF] text-slate-900 font-bold text-[11px] rounded-lg border border-[#9BD5FF]/40 transition-colors cursor-pointer flex items-center space-x-1"
-                              >
-                                <FileCheck className="w-3 h-3" />
-                                <span>Generate Invoice</span>
-                              </button>
-                            )}
-
-                            {isInvoiced && (
-                              <span className="text-[11px] text-emerald-700 font-bold flex items-center space-x-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Invoiced</span>
-                              </span>
-                            )}
-                          </div>
+                        <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setSelectedSOForDetail(so)}
+                            className="p-1.5 text-[#667482] hover:text-[#0B2A4A] rounded-lg hover:bg-[#EEF4F8] cursor-pointer mr-1"
+                            title="View Sales Order"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {so.status === 'confirmed' && (
+                            <button
+                              onClick={async () => {
+                                await convertSOToCustomerInvoice(so.id);
+                                setActiveSubTab('invoices');
+                              }}
+                              className="px-2.5 py-1 bg-[#0B2A4A] hover:bg-[#163B63] text-white rounded-lg font-semibold text-[11px] cursor-pointer"
+                            >
+                              Invoice
+                            </button>
+                          )}
                         </td>
                       </tr>
-                    );
-                  })}
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* TAB 3: CUSTOMER RECEIPTS TABLE */}
+          {activeSubTab === 'receipts' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-semibold tracking-wider">
+                  <tr>
+                    <th className="p-4">Receipt / Payment ID</th>
+                    <th className="p-4">Date</th>
+                    <th className="p-4">Customer</th>
+                    <th className="p-4">Payment Method</th>
+                    <th className="p-4 text-right">Amount Received</th>
+                    <th className="p-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E7EA]/60">
+                  {filteredReceipts.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-[#8A96A3]">
+                        No customer receipts recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredReceipts.map((rcpt) => (
+                      <tr key={rcpt.id} className="hover:bg-[#FAFAF8] transition-colors">
+                        <td className="p-4 font-mono font-bold text-[#0B2A4A]">
+                          {rcpt.number || `RCPT-${rcpt.id}`}
+                        </td>
+                        <td className="p-4 text-[#667482]">{rcpt.date}</td>
+                        <td className="p-4 font-semibold text-[#17212B]">{rcpt.partnerName || rcpt.partner || 'Customer'}</td>
+                        <td className="p-4">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#EEF4F8] text-[#0B2A4A] font-semibold text-[11px] border border-[#E3E7EA]">
+                            {rcpt.method || rcpt.payment_method || 'Bank'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right font-mono font-bold text-[#18794E] text-sm">
+                          +{formatCurrency(rcpt.amount)}
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold uppercase bg-[#EAF7F0] text-[#18794E] border border-[#18794E]/20">
+                            Posted
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -368,193 +960,11 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
         </div>
       )}
 
-      {/* CREATE SALES ORDER MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 rounded-xl bg-[#C6E7FF] text-slate-900">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900 font-display">Create Sales Order</h3>
-                  <p className="text-[11px] text-slate-500">Record customer order and generate sales quotation</p>
-                </div>
-              </div>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {formError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitSO} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Customer Dropdown (No default selection) */}
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Customer *</label>
-                  <select
-                    required
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none focus:border-[#3095EB]"
-                  >
-                    <option value="">-- Choose Customer --</option>
-                    {customersList.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.email || c.mobile || 'Customer'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Order Date */}
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Order Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={soDate}
-                    onChange={(e) => setSoDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none focus:border-[#3095EB]"
-                  />
-                </div>
-              </div>
-
-              {/* Line Items Table */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="font-semibold text-slate-700">Order Line Items *</label>
-                  <button
-                    type="button"
-                    onClick={handleAddItemLine}
-                    className="text-[11px] font-bold text-[#1B76C7] hover:underline flex items-center space-x-1 cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Item</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {items.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-[#FBFBFB] p-2.5 rounded-xl border border-slate-200">
-                      {/* Product Selector */}
-                      <div className="col-span-5">
-                        <select
-                          required
-                          value={item.productId}
-                          onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-slate-800 text-xs outline-none"
-                        >
-                          <option value="">-- Choose Product --</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} (Stock: {p.stock}, ₹{p.salesPrice})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Quantity */}
-                      <div className="col-span-2">
-                        <input
-                          type="number"
-                          min="1"
-                          required
-                          placeholder="Qty"
-                          value={item.qty}
-                          onChange={(e) => handleItemChange(idx, 'qty', e.target.value)}
-                          className="w-full px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-slate-800 text-xs text-center outline-none"
-                        />
-                      </div>
-
-                      {/* Unit Price */}
-                      <div className="col-span-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          required
-                          placeholder="Price"
-                          value={item.unitPrice}
-                          onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                          className="w-full px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-slate-800 text-xs text-right font-mono outline-none"
-                        />
-                      </div>
-
-                      {/* Line Total */}
-                      <div className="col-span-2 text-right font-mono font-bold text-slate-800 text-xs">
-                        {formatCurrency(item.total)}
-                      </div>
-
-                      {/* Remove Button */}
-                      <div className="col-span-1 text-right">
-                        {items.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItemLine(idx)}
-                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Summary Calculations */}
-              <div className="p-3 bg-[#D4F6FF]/30 rounded-xl border border-[#C6E7FF] flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-700">Order Grand Total:</span>
-                <span className="font-mono font-bold text-slate-900 text-sm">{formatCurrency(soGrandTotal)}</span>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Order Notes</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Delivery requested by next Tuesday"
-                  value={soNotes}
-                  onChange={(e) => setSoNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 rounded-xl font-bold border border-[#9BD5FF]/40 cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Creating Order...' : 'Confirm Sales Order'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* PRINTABLE STORE INVOICE MODAL */}
+      {/* Printable Invoice Modal */}
       {selectedInvoiceForPrint && (
         <StoreInvoiceModal
           invoice={selectedInvoiceForPrint}
           onClose={() => setSelectedInvoiceForPrint(null)}
-          formatCurrency={formatCurrency}
         />
       )}
     </div>

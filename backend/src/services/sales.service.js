@@ -58,7 +58,12 @@ class SalesService {
         status: 'draft',
         notes,
         created_by: userId,
+        analytic_account_id: typeof analyticAccountId !== 'undefined' ? analyticAccountId : null,
       }, { transaction: t });
+
+      // Generate sequence number S00001
+      salesOrder.order_number = 'S' + String(salesOrder.id).padStart(5, '0');
+      await salesOrder.save({ transaction: t });
 
       const itemsWithOrderId = lineItems.map(item => ({
         ...item,
@@ -149,6 +154,7 @@ class SalesService {
       const invoice = await CustomerInvoice.create({
         sales_order_id: order.id,
         customer_id: order.customer_id,
+        analytic_account_id: order.analytic_account_id || null,
         invoice_date: invoiceDate,
         due_date: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default Net 30
         total_amount: totalAmount,
@@ -156,6 +162,11 @@ class SalesService {
         payment_status: 'unpaid',
         notes: notes || order.notes,
       }, { transaction: t });
+
+      // Generate sequence number INV/2026/0001
+      const year = new Date(invoiceDate).getFullYear() || 2026;
+      invoice.invoice_number = `INV/${year}/${String(invoice.id).padStart(4, '0')}`;
+      await invoice.save({ transaction: t });
 
       // Update Sales Order Status
       order.status = 'invoiced';

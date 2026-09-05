@@ -28,7 +28,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 1 — Contact Master (Vendor Setup)',
       subtitle: 'Master Data Setup',
       icon: Layers,
-      color: 'text-amber-400',
+      color: 'text-[#C98232]',
       description: 'Urban Furniture defines its vendors (e.g. Rahul Sharma, Azure Furniture) with full contact profiles, GST locations, and payment terms.',
       actionText: 'Go to Contacts Master',
       targetTab: 'master-contacts',
@@ -38,7 +38,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 2 — Product Master & Catalog',
       subtitle: 'Catalog & Costing',
       icon: Layers,
-      color: 'text-indigo-400',
+      color: 'text-[#0B2A4A]',
       description: 'Define furniture products (e.g. Executive Ergonomic Chair, Teak Table) with Goods/Service classification, purchase cost (₹3,000), and sales price (₹5,000).',
       actionText: 'Go to Products Catalog',
       targetTab: 'master-products',
@@ -48,7 +48,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 3 — Customer Setup',
       subtitle: 'Client Registration',
       icon: Layers,
-      color: 'text-emerald-400',
+      color: 'text-[#18794E]',
       description: 'Register corporate clients (e.g. Nimesh Pathak / TechSpace IO) who purchase office seating and workstation furniture.',
       actionText: 'Go to Contacts Master',
       targetTab: 'master-contacts',
@@ -58,7 +58,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 4 — Purchase Order (PO)',
       subtitle: 'Procurement Workflow',
       icon: ShoppingCart,
-      color: 'text-amber-400',
+      color: 'text-[#C98232]',
       description: 'Create a Purchase Order for 10x Executive Chairs from Vendor Rahul Sharma at ₹3,000 unit cost (Total: ₹30,000).',
       actionText: 'Open Purchase Orders',
       targetTab: 'purchases',
@@ -68,7 +68,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 5 — Goods Received (Stock Increase)',
       subtitle: 'Inventory Inflow',
       icon: PackageCheck,
-      color: 'text-emerald-400',
+      color: 'text-[#18794E]',
       description: 'Warehouse receives the 10 chairs. System automatically increases inventory stock count by +10 units.',
       actionText: 'View Purchase Flow',
       targetTab: 'purchases',
@@ -78,7 +78,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 6 — Convert PO → Vendor Bill',
       subtitle: 'Billing & Accounting Trigger',
       icon: Receipt,
-      color: 'text-amber-400',
+      color: 'text-[#C98232]',
       description: 'Convert the received PO into Vendor Bill BILL-2026-001. System automatically posts Double-Entry: Dr. Purchase Expense (COGS) ₹30,000 / Cr. Accounts Payable (Creditors) ₹30,000.',
       actionText: 'Inspect Vendor Bills',
       targetTab: 'purchases',
@@ -88,7 +88,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 7 — Vendor Payment Outflow',
       subtitle: 'Bank Settlement',
       icon: CreditCard,
-      color: 'text-indigo-400',
+      color: 'text-[#0B2A4A]',
       description: 'Urban Furniture pays Rahul Sharma ₹30,000 via HDFC Bank. Double-Entry: Dr. Accounts Payable ₹30,000 / Cr. Bank Account ₹30,000.',
       actionText: 'View Payments Register',
       targetTab: 'payments',
@@ -98,7 +98,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 8 — Sales Order (SO)',
       subtitle: 'Customer Demand',
       icon: TrendingUp,
-      color: 'text-emerald-400',
+      color: 'text-[#18794E]',
       description: 'Customer Nimesh Pathak orders 5x Executive Chairs at ₹5,000 each (Total: ₹25,000). Backend validates stock availability before confirmation.',
       actionText: 'Open Sales Orders',
       targetTab: 'sales',
@@ -108,7 +108,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 9 — Deliver Goods (Stock Decrease)',
       subtitle: 'Fulfillment Outflow',
       icon: PackageCheck,
-      color: 'text-amber-400',
+      color: 'text-[#C98232]',
       description: 'Fulfill order and dispatch 5 chairs. Inventory automatically decrements: 10 purchased − 5 sold = 5 remaining in warehouse.',
       actionText: 'View Sales Flow',
       targetTab: 'sales',
@@ -118,7 +118,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 10 — Generate Customer Invoice',
       subtitle: 'Revenue Recognition',
       icon: Receipt,
-      color: 'text-emerald-400',
+      color: 'text-[#18794E]',
       description: 'Issue Customer Invoice INV-2026-001. Auto Double-Entry: Dr. Accounts Receivable (Debtors) ₹25,000 / Cr. Sale Income ₹25,000.',
       actionText: 'Inspect Invoices',
       targetTab: 'sales',
@@ -128,7 +128,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 11 — Receive Customer Payment',
       subtitle: 'Cash Inflow Settlement',
       icon: CreditCard,
-      color: 'text-emerald-400',
+      color: 'text-[#18794E]',
       description: 'Customer pays ₹25,000 online. Double-Entry: Dr. Bank Account (HDFC) ₹25,000 / Cr. Accounts Receivable (Debtors) ₹25,000.',
       actionText: 'View Payments Register',
       targetTab: 'payments',
@@ -138,7 +138,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 12 — General Accounting Ledger',
       subtitle: 'Double-Entry Audit Trail',
       icon: BookOpen,
-      color: 'text-indigo-400',
+      color: 'text-[#0B2A4A]',
       description: 'Inspect the complete General Ledger and Trial Balance. Notice that every single transaction strictly satisfies Total Debits = Total Credits.',
       actionText: 'Open General Ledger',
       targetTab: 'journals',
@@ -148,7 +148,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 13 — Real-Time Profit & Loss (P&L)',
       subtitle: 'Financial Performance',
       icon: TrendingUp,
-      color: 'text-emerald-400',
+      color: 'text-[#18794E]',
       description: 'Review P&L Statement: Sales Income − Cost of Goods Sold − Operating Expenses = Net Profit.',
       actionText: 'Open P&L Report',
       targetTab: 'reports',
@@ -158,7 +158,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
       title: 'Step 14 — Real-Time Balance Sheet',
       subtitle: 'Financial Health Snapshot',
       icon: Scale,
-      color: 'text-indigo-400',
+      color: 'text-[#0B2A4A]',
       description: 'Verify the golden accounting equation: Total Assets (Cash + Bank + Debtors + Inventory) = Total Liabilities + Capital (Owner Equity + Net Profit).',
       actionText: 'Open Balance Sheet',
       targetTab: 'reports',
@@ -175,23 +175,23 @@ export default function DemoTourModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="glass-panel bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-indigo-500/30 animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 bg-[#0B2A4A]/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-[#E3E7EA] animate-in fade-in zoom-in-95">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-navy-950 p-1 border border-teak-500/30 flex items-center justify-center shadow-lg shadow-navy-950/50 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-white p-1 border border-[#E3E7EA] flex items-center justify-center shadow-xs shrink-0">
               <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h2 className="font-bold text-base text-slate-100 flex items-center space-x-2">
-                <span>Urban Furniture — Demo Story</span>
-                <span className="text-[10px] bg-teak-500/20 text-teak-300 px-2 py-0.5 rounded-md border border-teak-500/30">Odoo Hackathon</span>
+              <h2 className="font-bold text-base text-[#0B2A4A] flex items-center space-x-2">
+                <span>Urban Furniture — Guided Workflow</span>
+                <span className="text-[10px] bg-[#F8F0E6] text-[#C98232] px-2 py-0.5 rounded-md border border-[#E5B875]/50 font-mono">14 Steps</span>
               </h2>
-              <p className="text-xs text-teak-400">14-Step End-to-End Accounting Workflow for Evaluators</p>
+              <p className="text-xs text-[#667482]">End-to-End Double-Entry Accounting Simulation</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800">
+          <button onClick={onClose} className="p-1.5 text-[#8A96A3] hover:text-[#17212B] rounded-lg bg-[#EEF4F8]">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -202,12 +202,12 @@ export default function DemoTourModal({ isOpen, onClose }) {
             <button
               key={idx}
               onClick={() => setCurrentStep(idx)}
-              className={`h-2 flex-1 rounded-full transition-all ${
+              className={`h-2 flex-1 rounded-full transition-all cursor-pointer ${
                 idx === currentStep
-                  ? 'bg-indigo-500 shadow-md shadow-indigo-500/50'
+                  ? 'bg-[#0B2A4A]'
                   : idx < currentStep
-                  ? 'bg-emerald-500/60'
-                  : 'bg-slate-800'
+                  ? 'bg-[#18794E]'
+                  : 'bg-[#EEF4F8]'
               }`}
               title={s.title}
             ></button>
@@ -215,23 +215,23 @@ export default function DemoTourModal({ isOpen, onClose }) {
         </div>
 
         {/* Step Card Body */}
-        <div className="glass-card p-6 rounded-2xl border border-slate-800 space-y-4">
+        <div className="p-6 rounded-2xl border border-[#E3E7EA] bg-[#FAFAF8] space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/60 px-3 py-1 rounded-full border border-indigo-800/50">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#0B2A4A] bg-[#EEF4F8] px-3 py-1 rounded-full border border-[#D8E1E8]">
               {current.subtitle} • Step {currentStep + 1} of {demoSteps.length}
             </span>
             <StepIcon className={`w-6 h-6 ${current.color}`} />
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-slate-100">{current.title}</h3>
-            <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">{current.description}</p>
+            <h3 className="text-lg font-bold text-[#17212B]">{current.title}</h3>
+            <p className="text-xs sm:text-sm text-[#667482] mt-2 leading-relaxed">{current.description}</p>
           </div>
 
-          <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1 text-xs">
-            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Business Logic Outcome</span>
-            <p className="text-emerald-400 font-semibold flex items-center space-x-1.5">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          <div className="p-3.5 bg-white rounded-xl border border-[#E3E7EA] space-y-1 text-xs">
+            <span className="text-[10px] text-[#8A96A3] uppercase font-bold tracking-wider">Accounting Outcome</span>
+            <p className="text-[#18794E] font-semibold flex items-center space-x-1.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#18794E]" />
               <span>{current.expectedOutcome}</span>
             </p>
           </div>
@@ -243,8 +243,8 @@ export default function DemoTourModal({ isOpen, onClose }) {
             <button
               disabled={currentStep === 0}
               onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
-              className={`p-2.5 rounded-xl border border-slate-800 text-xs font-semibold flex items-center space-x-1 ${
-                currentStep === 0 ? 'text-slate-600 bg-slate-900 cursor-not-allowed' : 'text-slate-300 hover:bg-slate-800'
+              className={`p-2.5 rounded-xl border border-[#E3E7EA] text-xs font-semibold flex items-center space-x-1 transition-colors ${
+                currentStep === 0 ? 'text-[#8A96A3] bg-[#FAFAF8] cursor-not-allowed' : 'text-[#0B2A4A] bg-[#EEF4F8] hover:bg-[#E2ECF2] cursor-pointer'
               }`}
             >
               <ArrowLeft className="w-4 h-4" />
@@ -254,8 +254,8 @@ export default function DemoTourModal({ isOpen, onClose }) {
             <button
               disabled={currentStep === demoSteps.length - 1}
               onClick={() => setCurrentStep(prev => Math.min(demoSteps.length - 1, prev + 1))}
-              className={`p-2.5 rounded-xl border border-slate-800 text-xs font-semibold flex items-center space-x-1 ${
-                currentStep === demoSteps.length - 1 ? 'text-slate-600 bg-slate-900 cursor-not-allowed' : 'text-slate-300 hover:bg-slate-800'
+              className={`p-2.5 rounded-xl border border-[#E3E7EA] text-xs font-semibold flex items-center space-x-1 transition-colors ${
+                currentStep === demoSteps.length - 1 ? 'text-[#8A96A3] bg-[#FAFAF8] cursor-not-allowed' : 'text-[#0B2A4A] bg-[#EEF4F8] hover:bg-[#E2ECF2] cursor-pointer'
               }`}
             >
               <span>Next Step</span>
@@ -265,7 +265,7 @@ export default function DemoTourModal({ isOpen, onClose }) {
 
           <button
             onClick={handleGoToTab}
-            className="flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-2.5 rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+            className="flex items-center justify-center space-x-2 bg-[#0B2A4A] hover:bg-[#163B63] text-white font-semibold px-5 py-2.5 rounded-xl text-xs shadow-xs transition-all cursor-pointer"
           >
             <Play className="w-4 h-4 fill-white" />
             <span>{current.actionText}</span>

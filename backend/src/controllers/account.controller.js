@@ -4,6 +4,8 @@ const ApiResponse = require('../utils/response');
 const { logAudit } = require('../middleware/audit.middleware');
 const { add, subtract } = require('../utils/decimal');
 
+const { sequelize } = require('../config/database');
+
 class AccountController {
   /**
    * GET /api/accounts
@@ -28,7 +30,48 @@ class AccountController {
         order: [['account_type', 'ASC'], ['account_name', 'ASC']],
       });
 
-      return ApiResponse.success(res, 'Chart of Accounts retrieved successfully', accounts);
+      // Grouped aggregation on JournalItem to prevent duplicate account rows
+      const journalSums = await JournalItem.findAll({
+        attributes: [
+          'account_id',
+          [sequelize.fn('SUM', sequelize.col('debit')), 'total_debit'],
+          [sequelize.fn('SUM', sequelize.col('credit')), 'total_credit']
+        ],
+        group: ['account_id'],
+        raw: true
+      });
+
+      const sumsMap = new Map();
+      for (const item of journalSums) {
+        sumsMap.set(Number(item.account_id), {
+          total_debit: Number(item.total_debit || 0),
+          total_credit: Number(item.total_credit || 0),
+        });
+      }
+
+      const enrichedAccounts = accounts.map(acc => {
+        const sums = sumsMap.get(acc.id) || { total_debit: 0, total_credit: 0 };
+        const debit = sums.total_debit;
+        const credit = sums.total_credit;
+        let current_balance = 0;
+
+        // Assets and Expenses increase on Debit; Liabilities, Income, Capital increase on Credit
+        if (['asset', 'expense'].includes(acc.account_type)) {
+          current_balance = subtract(debit, credit);
+        } else {
+          current_balance = subtract(credit, debit);
+        }
+
+        const json = acc.toJSON();
+        return {
+          ...json,
+          total_debit: debit,
+          total_credit: credit,
+          current_balance,
+        };
+      });
+
+      return ApiResponse.success(res, 'Chart of Accounts retrieved successfully', enrichedAccounts);
     } catch (err) {
       next(err);
     }

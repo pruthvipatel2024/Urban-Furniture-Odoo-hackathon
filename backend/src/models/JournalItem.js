@@ -35,6 +35,10 @@ const JournalItem = sequelize.define('JournalItem', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  partner_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 }, {
   tableName: 'journal_items',
   timestamps: false,

@@ -29,6 +29,14 @@ const PurchaseOrder = sequelize.define('PurchaseOrder', {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
+  order_number: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
+  analytic_account_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 }, {
   tableName: 'purchase_orders',
   timestamps: true,

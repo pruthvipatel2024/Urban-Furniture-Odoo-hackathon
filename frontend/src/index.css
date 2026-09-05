@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#FBFBFB] text-slate-800 font-sans antialiased selection:bg-[#C6E7FF] selection:text-slate-900;
+    @apply bg-[#FAFAF8] text-[#17212B] font-sans antialiased selection:bg-[#F8F0E6] selection:text-[#0B2A4A];
   }
 
   h1, h2, h3, h4, .font-heading {
@@ -19,29 +19,29 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #F3F4F6;
+  background: #FAFAF8;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #D8E1E8;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #B0C2D1;
 }
 
-/* Modern Card and Panel styling for light theme */
+/* Modern Card and Panel styling for Urban Furniture brand */
 .erp-card {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
+  border: 1px solid #E3E7EA;
   border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
 .erp-card-secondary {
-  background: #D4F6FF;
-  border: 1px solid #ACEEFF;
+  background: #F8F0E6;
+  border: 1px solid #E5B875;
   border-radius: 1rem;
 }
 

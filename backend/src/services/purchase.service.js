@@ -51,7 +51,12 @@ class PurchaseService {
         status: 'draft',
         notes,
         created_by: userId,
+        analytic_account_id: typeof analyticAccountId !== 'undefined' ? analyticAccountId : null,
       }, { transaction: t });
+
+      // Generate sequence number P00001
+      purchaseOrder.order_number = 'P' + String(purchaseOrder.id).padStart(5, '0');
+      await purchaseOrder.save({ transaction: t });
 
       const itemsWithOrderId = lineItems.map(item => ({
         ...item,
@@ -127,6 +132,7 @@ class PurchaseService {
       const bill = await VendorBill.create({
         purchase_order_id: order.id,
         vendor_id: order.vendor_id,
+        analytic_account_id: order.analytic_account_id || null,
         invoice_date: invoiceDate,
         due_date: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default Net 30
         total_amount: totalAmount,
@@ -134,6 +140,11 @@ class PurchaseService {
         payment_status: 'unpaid',
         notes: notes || order.notes,
       }, { transaction: t });
+
+      // Generate sequence number Bill/2026/0001
+      const year = new Date(invoiceDate).getFullYear() || 2026;
+      bill.bill_number = `Bill/${year}/${String(bill.id).padStart(4, '0')}`;
+      await bill.save({ transaction: t });
 
       // Update Purchase Order Status
       order.status = 'billed';

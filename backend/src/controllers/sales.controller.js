@@ -89,7 +89,7 @@ class SalesController {
    */
   static async createSalesOrder(req, res, next) {
     try {
-      const { customerId, orderDate, notes, items } = req.body;
+      const { customerId, orderDate, notes, items, analyticAccountId } = req.body;
 
       // Contact role can only order for themselves
       const targetCustomerId = req.user.role === 'contact' ? req.user.contact_id : customerId;
@@ -103,6 +103,7 @@ class SalesController {
         orderDate,
         notes,
         items,
+        analyticAccountId,
         userId: req.user.id,
       });
 

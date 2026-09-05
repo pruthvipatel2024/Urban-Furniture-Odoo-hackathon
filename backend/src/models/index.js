@@ -28,10 +28,13 @@ ChartOfAccount.hasMany(Journal, { foreignKey: 'default_account_id', as: 'journal
 // 3. Analytic Accounts & Budgets
 Budget.belongsTo(AnalyticAccount, { foreignKey: 'analytic_account_id', as: 'analyticAccount' });
 AnalyticAccount.hasMany(Budget, { foreignKey: 'analytic_account_id', as: 'budgets' });
+Budget.belongsTo(Budget, { foreignKey: 'revision_of_id', as: 'originalBudget' });
+Budget.belongsTo(Budget, { foreignKey: 'revised_budget_id', as: 'revisedBudget' });
 
 // 4. Purchase Flow Associations
 PurchaseOrder.belongsTo(Contact, { foreignKey: 'vendor_id', as: 'vendor' });
 Contact.hasMany(PurchaseOrder, { foreignKey: 'vendor_id', as: 'purchaseOrders' });
+PurchaseOrder.belongsTo(AnalyticAccount, { foreignKey: 'analytic_account_id', as: 'analyticAccount' });
 
 PurchaseOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 PurchaseOrder.hasMany(PurchaseOrderItem, { foreignKey: 'purchase_order_id', as: 'items', onDelete: 'CASCADE' });
@@ -45,10 +48,12 @@ PurchaseOrder.hasOne(VendorBill, { foreignKey: 'purchase_order_id', as: 'vendorB
 
 VendorBill.belongsTo(Contact, { foreignKey: 'vendor_id', as: 'vendor' });
 Contact.hasMany(VendorBill, { foreignKey: 'vendor_id', as: 'vendorBills' });
+VendorBill.belongsTo(AnalyticAccount, { foreignKey: 'analytic_account_id', as: 'analyticAccount' });
 
 // 5. Sales Flow Associations
 SalesOrder.belongsTo(Contact, { foreignKey: 'customer_id', as: 'customer' });
 Contact.hasMany(SalesOrder, { foreignKey: 'customer_id', as: 'salesOrders' });
+SalesOrder.belongsTo(AnalyticAccount, { foreignKey: 'analytic_account_id', as: 'analyticAccount' });
 
 SalesOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 SalesOrder.hasMany(SalesOrderItem, { foreignKey: 'sales_order_id', as: 'items', onDelete: 'CASCADE' });
@@ -62,6 +67,7 @@ SalesOrder.hasOne(CustomerInvoice, { foreignKey: 'sales_order_id', as: 'invoice'
 
 CustomerInvoice.belongsTo(Contact, { foreignKey: 'customer_id', as: 'customer' });
 Contact.hasMany(CustomerInvoice, { foreignKey: 'customer_id', as: 'invoices' });
+CustomerInvoice.belongsTo(AnalyticAccount, { foreignKey: 'analytic_account_id', as: 'analyticAccount' });
 
 // 6. Payments Associations
 Payment.belongsTo(VendorBill, { foreignKey: 'vendor_bill_id', as: 'vendorBill' });
@@ -83,6 +89,9 @@ JournalItem.belongsTo(JournalEntry, { foreignKey: 'journal_entry_id', as: 'journ
 
 JournalItem.belongsTo(ChartOfAccount, { foreignKey: 'account_id', as: 'account' });
 ChartOfAccount.hasMany(JournalItem, { foreignKey: 'account_id', as: 'journalItems' });
+
+JournalItem.belongsTo(Contact, { foreignKey: 'partner_id', as: 'partner' });
+Contact.hasMany(JournalItem, { foreignKey: 'partner_id', as: 'journalItems' });
 
 // 8. Audit Trail
 AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });

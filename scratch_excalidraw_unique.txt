@@ -1,0 +1,1311 @@
+=== BLOCK 1 ===
+Create User
+
+=== BLOCK 2 ===
+Name
+
+=== BLOCK 3 ===
+Login id
+
+=== BLOCK 4 ===
+E-mail id
+
+=== BLOCK 5 ===
+Role
+
+=== BLOCK 6 ===
+User
+
+=== BLOCK 7 ===
+Administrator
+
+=== BLOCK 8 ===
+Password
+
+=== BLOCK 9 ===
+Re-Enter Password
+
+=== BLOCK 10 ===
+Create
+
+=== BLOCK 11 ===
+Cancel
+
+=== BLOCK 12 ===
+Login Page
+
+=== BLOCK 13 ===
+App LoGo
+
+=== BLOCK 14 ===
+Login Id -
+
+=== BLOCK 15 ===
+Password -
+
+=== BLOCK 16 ===
+SIGN IN
+
+=== BLOCK 17 ===
+Forgot Password | Sign Up
+
+=== BLOCK 18 ===
+Enter Login Id -
+
+=== BLOCK 19 ===
+Enter Email Id -
+
+=== BLOCK 20 ===
+Forgot Password
+
+=== BLOCK 21 ===
+Sign Up Page
+
+=== BLOCK 22 ===
+Enter Password -
+
+=== BLOCK 23 ===
+Re-Enter Password -
+
+=== BLOCK 24 ===
+For create user page check creds as follows
+1. Login Id should be unique and must be between 6-12 characters
+2. Email should not be a duplicate in database
+3. Password must be unique and must contain a small case, a large case
+and a special character and must have more than 8 characters
+
+=== BLOCK 25 ===
+Role 
+Admin - Have all access rights
+User - can only see his invoices/bills in paid/unpaid status and can directly pay his dues from portal
+Accountant - Create Master data, record Transactions and View reports.
+                Can manage customers/vendors, access accounting dashboard, create journal entries, 
+                Can create and manage invoices, bills, and payments
+
+=== BLOCK 26 ===
+For Login Page
+- Check for Login Credentials
+- Match creds, and allow to login a user
+- If Creds does not match thrw an error msg, 
+  "Invalid Login Id or Password"
+- When clicked on SignUp, Land to SignUp page and only invoicing user will be create.
+- When Clicked on Forget Password click on Forget Password page
+
+=== BLOCK 27 ===
+For Sign up Page,
+Create a 'invoicing user' database into the system on signup
+
+=== BLOCK 28 ===
+Check creds as follows
+
+=== BLOCK 29 ===
+1. login ID should be unique and must be in between 6-12 charachters.
+
+=== BLOCK 30 ===
+2. Email Id should not be a duplicate in database
+
+=== BLOCK 31 ===
+3.Password must me unique and must contain a small case, a large case and
+
+=== BLOCK 32 ===
+a special character and length should be in more then 8 charachters.
+
+=== BLOCK 33 ===
+For Sign up Page,
+
+=== BLOCK 34 ===
+Ceate a 'invoicing user' database into the system on signup
+
+=== BLOCK 35 ===
+For Sign up Page
+Create a "user" database into the system on signup
+Check creds as follows 
+1. Login Id Should be unique and must be in between 6-12 characters.
+2. Email Id should not be a duplicate in database
+3. password must be unique and must contain a small case, a large case 
+and a special character and length should be more than 8 characters
+
+=== BLOCK 36 ===
+App Dashboard
+
+=== BLOCK 37 ===
+Sales
+
+=== BLOCK 38 ===
+Master Settings
+
+=== BLOCK 39 ===
+Master Menu
+
+=== BLOCK 40 ===
+Contact
+
+=== BLOCK 41 ===
+Purchase
+
+=== BLOCK 42 ===
+Account
+
+=== BLOCK 43 ===
+Report
+
+=== BLOCK 44 ===
+Budget Reports
+
+=== BLOCK 45 ===
+Chart of Accounts
+
+=== BLOCK 46 ===
+New
+
+=== BLOCK 47 ===
+All
+12
+
+=== BLOCK 48 ===
+Confirmed
+     10
+
+=== BLOCK 49 ===
+Draft
+  2
+
+=== BLOCK 50 ===
+Achieved
+    3
+
+=== BLOCK 51 ===
+Budget
+    2
+
+=== BLOCK 52 ===
+Committed
+     4
+
+=== BLOCK 53 ===
+Open on click
+
+=== BLOCK 54 ===
+Sales order 
+Sale Invoice
+Receipt
+
+=== BLOCK 55 ===
+Purchase Order
+Purchase Bill
+Payment
+
+=== BLOCK 56 ===
+Contact
+Product
+Analyticals
+Analytical Budget
+Chart of Account
+Journals
+Journal Entries
+
+=== BLOCK 57 ===
+Balancesheet
+Profit and Loss
+Budget Report
+
+=== BLOCK 58 ===
+Master Data
+
+=== BLOCK 59 ===
+All Master will have list view as default and clicking on           button it will open
+blank form view to enter new record,
+
+=== BLOCK 60 ===
+Clicking on already saved record - it will open form view with saved details.
+
+=== BLOCK 61 ===
+All Master will have list view as default and clicking on   New    button it will open blank form view to enter new record,
+Clicking on already saved record - it will open form view with saved details.
+
+=== BLOCK 62 ===
+Contact master Form View
+
+=== BLOCK 63 ===
+Confirm
+
+=== BLOCK 64 ===
+Back
+
+=== BLOCK 65 ===
+Contact Name
+
+=== BLOCK 66 ===
+Upload Image
+
+=== BLOCK 67 ===
+Phone
+
+=== BLOCK 68 ===
+Address
+
+=== BLOCK 69 ===
+Email
+
+=== BLOCK 70 ===
+Unique Email
+
+=== BLOCK 71 ===
+Street
+
+=== BLOCK 72 ===
+City
+
+=== BLOCK 73 ===
+State
+
+=== BLOCK 74 ===
+Country
+
+=== BLOCK 75 ===
+Pincode
+
+=== BLOCK 76 ===
+Contact List View
+
+=== BLOCK 77 ===
+Search
+
+=== BLOCK 78 ===
+Select
+
+=== BLOCK 79 ===
+Image
+
+=== BLOCK 80 ===
+Open Wood
+
+=== BLOCK 81 ===
+Joey Wills
+
+=== BLOCK 82 ===
+Openwood21@example.com
+
+=== BLOCK 83 ===
+Joey.wills@example.com
+
+=== BLOCK 84 ===
++91 9090090909
+
+=== BLOCK 85 ===
++91 8080080808
+
+=== BLOCK 86 ===
+Contact Kanban View
+
+=== BLOCK 87 ===
+Allow user to shift to Kanban View
+
+=== BLOCK 88 ===
+Allow User to shift to List View
+
+=== BLOCK 89 ===
+Open Wood
+Openwood21@example.com
++91 9090090909
+
+=== BLOCK 90 ===
+Joey Wills
+Joey.wills@example.com
++91 8080080808
+
+=== BLOCK 91 ===
+Product Master Form View
+
+=== BLOCK 92 ===
+Product Name
+
+=== BLOCK 93 ===
+Category
+
+=== BLOCK 94 ===
+Sales Price
+
+=== BLOCK 95 ===
+Cost
+
+=== BLOCK 96 ===
+Upload 
+Image
+
+=== BLOCK 97 ===
+Selection
+
+=== BLOCK 98 ===
+Rs. 100.00
+
+=== BLOCK 99 ===
+Rs. 50.00
+
+=== BLOCK 100 ===
+Category Can be created and saved on the fly
+(Many2one Field)
+
+=== BLOCK 101 ===
+Product Type
+
+=== BLOCK 102 ===
+Provide Drop down selection of 
+Goods 
+Service
+Combo
+
+=== BLOCK 103 ===
+Analyticals Form View
+
+=== BLOCK 104 ===
+Analytic Account
+
+=== BLOCK 105 ===
+Type
+
+=== BLOCK 106 ===
+Budget      Start Date     End Date      Comitted   Achieved
+
+=== BLOCK 107 ===
+Select    Product         Category         Type      Sales Price      Cost
+
+=== BLOCK 108 ===
+Create Kanban and List View in the same manner for Product, Analyticals
+
+=== BLOCK 109 ===
+Air Conditioner
+
+=== BLOCK 110 ===
+Refigerator
+
+=== BLOCK 111 ===
+Electronics
+
+=== BLOCK 112 ===
+Goods
+
+=== BLOCK 113 ===
+25,000
+
+=== BLOCK 114 ===
+10000
+
+=== BLOCK 115 ===
+15,000
+
+=== BLOCK 116 ===
+7,000
+
+=== BLOCK 117 ===
+Product Master List View
+
+=== BLOCK 118 ===
+Product Master Kanban View
+
+=== BLOCK 119 ===
+Budget
+
+=== BLOCK 120 ===
+(Form View of Original Budget)
+
+=== BLOCK 121 ===
+Budget Name
+
+=== BLOCK 122 ===
+Budget Period
+
+=== BLOCK 123 ===
+To
+
+=== BLOCK 124 ===
+January 2026
+
+=== BLOCK 125 ===
+Start Date
+
+=== BLOCK 126 ===
+End Date
+
+=== BLOCK 127 ===
+Analytic       Type        Committed Amount        Achieved Amount       Achieved %      Amount To
+                                                                                                              Achieve
+
+=== BLOCK 128 ===
+Revised With
+
+=== BLOCK 129 ===
+Revised Budget
+
+=== BLOCK 130 ===
+Responsible
+
+=== BLOCK 131 ===
+Furniture     Expense         200000                     10000                   5%              190000
+
+=== BLOCK 132 ===
+Revision Of
+
+=== BLOCK 133 ===
+Original Budget
+
+=== BLOCK 134 ===
+Budget (Revised)
+
+=== BLOCK 135 ===
+(Original Budget Clickable link)
+
+=== BLOCK 136 ===
+January 2026                01/01/2026                31/01/2026                200000                10000
+
+=== BLOCK 137 ===
+Budget Report (List View)
+
+=== BLOCK 138 ===
+Budget         Start Date       End Date          Status           Pie Chart
+
+=== BLOCK 139 ===
+January 2026     01/01/2026     31/01/2026      Confirm
+
+=== BLOCK 140 ===
+Achieved
+
+=== BLOCK 141 ===
+Balance
+
+=== BLOCK 142 ===
+Open Form View on Click
+
+=== BLOCK 143 ===
+Sales Price 25000
+Cost  15000
+
+=== BLOCK 144 ===
+Sales Price  10000
+Cost   7000
+
+=== BLOCK 145 ===
+Budget Report (Kanban View)
+
+=== BLOCK 146 ===
+January 2026
+Start Date  01/01/2026
+End Date    31/01/2026
+
+=== BLOCK 147 ===
+Drop down selection
+Income 
+Expense
+
+=== BLOCK 148 ===
+Menu & Stage Mapping
+
+=== BLOCK 149 ===
+Menu
+
+=== BLOCK 150 ===
+Stage
+
+=== BLOCK 151 ===
+Output
+
+=== BLOCK 152 ===
+Revise
+
+=== BLOCK 153 ===
+Cancelled
+
+=== BLOCK 154 ===
+Draft
+
+=== BLOCK 155 ===
+Revised
+
+=== BLOCK 156 ===
+Here user can create a new fresh Budget
+
+=== BLOCK 157 ===
+User confirm the newly created Budget
+
+=== BLOCK 158 ===
+Only Visible at confirmed Stage
+
+=== BLOCK 159 ===
+Here User can revise the new confirmed budget e.g. 
+Budgeted Expense was 2,00,000
+now you need to change the limit to 3,50,000
+
+=== BLOCK 160 ===
+On Clicking Revise - New Budget will appear and Old 
+one will move to Revised state. Link will be visible on
+Main Budget and on click it will lead to new revised 
+Budget and the revised will have link to original.
+
+=== BLOCK 161 ===
+Here User can archive the existing budget
+
+=== BLOCK 162 ===
+Field Explaination
+
+=== BLOCK 163 ===
+Analyticals
+
+=== BLOCK 164 ===
+Revision of
+
+=== BLOCK 165 ===
+Alpha Numeric  (In case of Revision Keep the original Budget name as it is and add the word "Revised" in last (For e.g. Project A Revised)
+
+=== BLOCK 166 ===
+Date
+
+=== BLOCK 167 ===
+Select from Contacts Created (open list of contacts created on click)
+
+=== BLOCK 168 ===
+The Analytic Account name set in the Analytical account
+
+=== BLOCK 169 ===
+Income/Expenses
+
+=== BLOCK 170 ===
+Analyticals on All Invoice lines to be mapped with type = Income
+Analyticals on All Purchase Order/Vendor Bill Lines to be mapped with Type = Expenses
+
+=== BLOCK 171 ===
+Committed Amount
+
+=== BLOCK 172 ===
+Monetary Amount
+
+=== BLOCK 173 ===
+Achieved Amount
+
+=== BLOCK 174 ===
+Only Visible for Confirmed Budget, For Example
+
+=== BLOCK 175 ===
+Analytic Name
+
+=== BLOCK 176 ===
+Lookup
+
+=== BLOCK 177 ===
+Project 1
+
+=== BLOCK 178 ===
+Income
+
+=== BLOCK 179 ===
+Sales Invoice
+
+=== BLOCK 180 ===
+21,000
+
+=== BLOCK 181 ===
+Search Analytical in Sales Invoice with name Project 1,
+consider budget period and compute total and set in achieved amount
+
+=== BLOCK 182 ===
+Expense
+
+=== BLOCK 183 ===
+Vendor Bills
+
+=== BLOCK 184 ===
+21000
+
+=== BLOCK 185 ===
+Search Analytical in Sales Invoice with name Project 1,
+
+=== BLOCK 186 ===
+consider budget period and compute total and set in achieved amount
+
+=== BLOCK 187 ===
+Search Analytical in Vendor Bills with name Project 1,
+consider budget period and compute total and set in achieved amount
+
+=== BLOCK 188 ===
+Clicking on the Achieved Amount Button open list view of all Invoices/Bills having same analytical for the budget period
+
+=== BLOCK 189 ===
+Achieved %
+
+=== BLOCK 190 ===
+Only Visible for Confirmed Budget, Consider the following Formula:
+
+=== BLOCK 191 ===
+(Achieved Amount/Committed Amount) * 100
+
+=== BLOCK 192 ===
+Amount to 
+Achieve
+
+=== BLOCK 193 ===
+Committed Amount - (minus) Achieved Amount
+
+=== BLOCK 194 ===
+All the Budget List where the Analytic Account is used
+
+=== BLOCK 195 ===
+Data Input Forms
+
+=== BLOCK 196 ===
+Purchase Order
+
+=== BLOCK 197 ===
+PO No.
+
+=== BLOCK 198 ===
+P00001
+
+=== BLOCK 199 ===
+(Create Sequence auto generate PO number +1 of Last order)
+
+=== BLOCK 200 ===
+Vendor Name
+
+=== BLOCK 201 ===
+Mr Rahul
+
+=== BLOCK 202 ===
+(From Contact Master - Many to one)
+
+=== BLOCK 203 ===
+PO Date
+
+=== BLOCK 204 ===
+Payment Terms
+
+=== BLOCK 205 ===
+30 Days (Can be created on
+
+=== BLOCK 206 ===
+Create Bill
+
+=== BLOCK 207 ===
+Sr. No.
+
+=== BLOCK 208 ===
+Product
+
+=== BLOCK 209 ===
+Budget Analytics
+
+=== BLOCK 210 ===
+Qty
+
+=== BLOCK 211 ===
+Unit Price
+
+=== BLOCK 212 ===
+Total
+
+=== BLOCK 213 ===
+1.
+
+=== BLOCK 214 ===
+(From Product Master -
+Many to one)
+
+=== BLOCK 215 ===
+(From Analytics Master - 
+Many to One)
+
+=== BLOCK 216 ===
+Numeric
+
+=== BLOCK 217 ===
+Monetary
+
+=== BLOCK 218 ===
+Vendor Bill
+
+=== BLOCK 219 ===
+Vendor Bill No.
+
+=== BLOCK 220 ===
+Bill Reference
+
+=== BLOCK 221 ===
+Status
+
+=== BLOCK 222 ===
+Bill Date
+
+=== BLOCK 223 ===
+Due Date
+
+=== BLOCK 224 ===
+ABC-26-001
+
+=== BLOCK 225 ===
+Alpha numeric (Text)
+
+=== BLOCK 226 ===
+Bill/2026/0001
+
+=== BLOCK 227 ===
+(auto generate Bill Number +1 of Last Bill)
+
+=== BLOCK 228 ===
+Mr. Rahul
+
+=== BLOCK 229 ===
+(from Contact master - Many to one)
+
+=== BLOCK 230 ===
+only one at a time, computation given below
+
+=== BLOCK 231 ===
+Pay
+
+=== BLOCK 232 ===
+Unit Price * Quantity
+
+=== BLOCK 233 ===
+2.
+
+=== BLOCK 234 ===
+Table
+
+=== BLOCK 235 ===
+3
+
+=== BLOCK 236 ===
+2000
+
+=== BLOCK 237 ===
+6000
+
+=== BLOCK 238 ===
+(3Qty * 2000)
+
+=== BLOCK 239 ===
+PO
+
+=== BLOCK 240 ===
+Bill Created from PO fetch
+Vendor name, Product, Price, Quantity
+
+=== BLOCK 241 ===
+On click open the PO from which Bill Created 
+(Only show this if bill created from PO
+hide if Bill Created Fresh without PO)
+
+=== BLOCK 242 ===
+Sr. No.              Product              Chart of Account             Budget Analytics                      Qty        Unit Price      Total
+
+=== BLOCK 243 ===
+Paid Via Cash
+Paid Via Bank
+Amount Due
+
+=== BLOCK 244 ===
+(Total - Amount Paid)
+
+=== BLOCK 245 ===
+1.           Product Master -
+              Many to one
+
+=== BLOCK 246 ===
+Product Master - 
+Many to one
+
+=== BLOCK 247 ===
+Analytics master -
+ Many to one
+
+=== BLOCK 248 ===
+Project 1                          3            2000          6000
+
+=== BLOCK 249 ===
+On Click
+
+=== BLOCK 250 ===
+Bill Payment
+
+=== BLOCK 251 ===
+0
+
+=== BLOCK 252 ===
+Clicking on PAY button from Bill
+
+=== BLOCK 253 ===
+Provide option 
+1. Print
+2. Send
+
+=== BLOCK 254 ===
+Payment Type
+
+=== BLOCK 255 ===
+Send
+
+=== BLOCK 256 ===
+Receive
+
+=== BLOCK 257 ===
+Partner
+
+=== BLOCK 258 ===
+Amount
+
+=== BLOCK 259 ===
+Payment Via
+
+=== BLOCK 260 ===
+Note
+
+=== BLOCK 261 ===
+Alpha Numeric (Text)
+
+=== BLOCK 262 ===
+Autofill Partner Name from Invoice/Bill
+
+=== BLOCK 263 ===
+Autofill Amount Due from Invoice/Bill
+
+=== BLOCK 264 ===
+(Default Today's Date)
+
+=== BLOCK 265 ===
+Default set to Bank can be selected to Cash
+
+=== BLOCK 266 ===
+(Allow user to send from Mail)
+
+=== BLOCK 267 ===
+On Click 
+Open the Budget Analytic Report 
+that is used the Bill
+
+=== BLOCK 268 ===
+Sales Order
+
+=== BLOCK 269 ===
+SO No.
+
+=== BLOCK 270 ===
+Customer Name
+
+=== BLOCK 271 ===
+SO Date
+
+=== BLOCK 272 ===
+Create Invoice
+
+=== BLOCK 273 ===
+S00001
+
+=== BLOCK 274 ===
+Customer Invoice No.
+
+=== BLOCK 275 ===
+Invoice Reference
+
+=== BLOCK 276 ===
+Invoice Date
+
+=== BLOCK 277 ===
+INV/2026/0001
+
+=== BLOCK 278 ===
+(auto generate Invoice Number +1 of Last Bill)
+
+=== BLOCK 279 ===
+SO
+
+=== BLOCK 280 ===
+Sr. No.              Product                  Chart of Accounts          Budget Analytics        Qty        Unit Price         Total
+
+=== BLOCK 281 ===
+Project 1                  3            2000          6000
+
+=== BLOCK 282 ===
+Customer Invoice
+
+=== BLOCK 283 ===
+Invoice Created from SO fetch
+Customer Name, Product, Price, Quantity
+
+=== BLOCK 284 ===
+Clicking on PAY button on Invoice
+
+=== BLOCK 285 ===
+Provide Option 
+1. Print
+2. Send
+
+=== BLOCK 286 ===
+Invoice Payment
+
+=== BLOCK 287 ===
+Customer Invoice Portal View
+
+=== BLOCK 288 ===
+Invoice            Invoice Date         Due Date         Amount Due           Status
+
+=== BLOCK 289 ===
+(Contact can view only their own Invoices)
+
+=== BLOCK 290 ===
+INV/2026/1213       11/08/2026        11/08/2026         100000 Rs.
+
+=== BLOCK 291 ===
+Paid
+
+=== BLOCK 292 ===
+INV/2026/1820      25/08/2026       25/08/2026         25000 Rs.
+
+=== BLOCK 293 ===
+Pay Now
+
+=== BLOCK 294 ===
+Urban Furnitures
+
+=== BLOCK 295 ===
+Successful
+
+=== BLOCK 296 ===
+On Successful status - Change the Status of Invoice from Pay Now to Paid
+
+=== BLOCK 297 ===
+Password Reset
+
+=== BLOCK 298 ===
+Log Out
+
+=== BLOCK 299 ===
+Purchase account to be set by default
+
+=== BLOCK 300 ===
+As soon as the vendor bill is confirmed a journal entry would be created that would become visible in the Journal Entries section
+For Vendor bill always purchase chart of account would be set by default
+The Journal Entry should always be balanced 
+That is the debit and credit totals need to match
+
+=== BLOCK 301 ===
+Demo Journal Entry
+
+=== BLOCK 302 ===
+Sales account to be set by default
+
+=== BLOCK 303 ===
+As soon as the Customer Invoice is confirmed a journal entry would be created that would become visible in the Journal Entries section
+For Customer Invoice always Sales chart of account would be set by default
+The Journal Entry should always be balanced 
+That is the debit and credit totals need to match
+
+=== BLOCK 304 ===
+Journal Entries
+
+=== BLOCK 305 ===
+Journals
+
+=== BLOCK 306 ===
+Chart of Accounts (List View)
+
+=== BLOCK 307 ===
+Account Name
+
+=== BLOCK 308 ===
+Provide drop down list to select from the following
+
+=== BLOCK 309 ===
+Balancesheet
+
+=== BLOCK 310 ===
+Asset 
+Liability
+Bank
+Capital 
+Cash
+
+=== BLOCK 311 ===
+Profit and Loss
+
+=== BLOCK 312 ===
+Income 
+Expenses
+Other Expenses
+
+=== BLOCK 313 ===
+(Just for heading selection can be done from the orange part only)
+
+=== BLOCK 314 ===
+All this accounts are to be pre configured
+
+=== BLOCK 315 ===
+When clicking on new
+
+=== BLOCK 316 ===
+(List View)
+
+=== BLOCK 317 ===
+Journal Name                 Type                     Default Account
+
+=== BLOCK 318 ===
+Sales                             Sales                       Sales Income A/c
+
+=== BLOCK 319 ===
+Purchase                       Purchase                  Purchase Expense A/c
+
+=== BLOCK 320 ===
+Bank                             Bank                      Bank A/c
+
+=== BLOCK 321 ===
+When Clicking on New
+
+=== BLOCK 322 ===
+Journal Name
+
+=== BLOCK 323 ===
+Journal Type
+
+=== BLOCK 324 ===
+Default Account
+
+=== BLOCK 325 ===
+Cash                             Cash                       Cash A/c
+
+=== BLOCK 326 ===
+Select from
+Sales
+Purchase 
+Bank 
+Cash
+
+=== BLOCK 327 ===
+From Chart of Accounts Many to one
+
+=== BLOCK 328 ===
+Journal Entries (List View)
+
+=== BLOCK 329 ===
+Date        Number          Partner          Journal         Total        Status
+
+=== BLOCK 330 ===
+Sep 1       Bill/2026/0001       Mr. Rahul           Purchases        Rs. 30,000
+
+=== BLOCK 331 ===
+Sep 2     Inv/2026/001       Mr Raj            Sales           Rs. 10,500
+
+=== BLOCK 332 ===
+Pos
+ted
+
+=== BLOCK 333 ===
+Posted
+
+=== BLOCK 334 ===
+Post
+
+=== BLOCK 335 ===
+Accounting Date
+
+=== BLOCK 336 ===
+Journal
+
+=== BLOCK 337 ===
+Selection (From journals Many to one)
+
+=== BLOCK 338 ===
+Account             Partner            Debit                 Credit
+
+=== BLOCK 339 ===
+Asset A/c                     Rahul                   Rs. 10,000
+
+=== BLOCK 340 ===
+Bank A/c                                                                           Rs. 10,000
+
+=== BLOCK 341 ===
+Blocking warning if the debit and credit amount don't match
+
+=== BLOCK 342 ===
+Field Explanation
+
+=== BLOCK 343 ===
+Account -
+
+=== BLOCK 344 ===
+Selection From Chart of Accounts (Many to one)
+
+=== BLOCK 345 ===
+Partner -
+
+=== BLOCK 346 ===
+Selection from contact master
+
+=== BLOCK 347 ===
+When Clicking on new
+
+=== BLOCK 348 ===
+Profit and Loss Report
+
+=== BLOCK 349 ===
+2026
+
+=== BLOCK 350 ===
+Print
+
+=== BLOCK 351 ===
+Pdf download on click
+
+=== BLOCK 352 ===
+Income from Sales
+
+=== BLOCK 353 ===
+Expenses
+
+=== BLOCK 354 ===
+Purchase Expense
+
+=== BLOCK 355 ===
+Other Expense
+
+=== BLOCK 356 ===
+Net Income
+
+=== BLOCK 357 ===
+Rs. 10000
+
+=== BLOCK 358 ===
+Rs. 7000
+
+=== BLOCK 359 ===
+Rs. 6000
+
+=== BLOCK 360 ===
+Rs. 1000
+
+=== BLOCK 361 ===
+Rs. 3000
+
+=== BLOCK 362 ===
+Field Computation
+
+=== BLOCK 363 ===
+Income -
+
+=== BLOCK 364 ===
+Total of Income
+
+=== BLOCK 365 ===
+Income from Sales -
+
+=== BLOCK 366 ===
+Total of account type Income
+
+=== BLOCK 367 ===
+Expenses -
+
+=== BLOCK 368 ===
+Total of All expenses
+
+=== BLOCK 369 ===
+Purchase Expense -
+
+=== BLOCK 370 ===
+Total of Account type Expense
+
+=== BLOCK 371 ===
+Other Expense -
+
+=== BLOCK 372 ===
+Total of account type Other Expense
+
+=== BLOCK 373 ===
+Net Income -
+
+=== BLOCK 374 ===
+Difference of Income - Expenses
+
+=== BLOCK 375 ===
+Balance Sheet
+
+=== BLOCK 376 ===
+Assets
+
+=== BLOCK 377 ===
+Liabilities
+
+=== BLOCK 378 ===
+Bank
+
+=== BLOCK 379 ===
+Debtors
+
+=== BLOCK 380 ===
+Other Assets
+
+=== BLOCK 381 ===
+Capital
+
+=== BLOCK 382 ===
+Creditors
+
+=== BLOCK 383 ===
+Other Liability
+
+=== BLOCK 384 ===
+Total Asset
+
+=== BLOCK 385 ===
+Total Liability
+
+=== BLOCK 386 ===
+Capital A/c                                            Capital
+
+=== BLOCK 387 ===
+Bank - Account type Asset - Bank 
+Cash - Account type Asset - cash  
+Debtors - Account type Asset - Debtors
+Creditors - Account type Liability - creditor 
+Capital - Account Type Capital
+
+=== BLOCK 388 ===
+Cash
+
+=== BLOCK 389 ===
+The Total of All asset and liability would always match
+
+=== BLOCK 390 ===
+Reset to
+Draft
+
+=== BLOCK 391 ===
+Purchase A/c                     Rahul                   Rs. 10,000
+
+=== BLOCK 392 ===
+Creditor A/c                                                                     Rs. 10,000
+
+=== BLOCK 393 ===
+In case of bill journal would always be Purchase
+
+=== BLOCK 394 ===
+(Bill date fetch from bill)
+
+=== BLOCK 395 ===
+Demo Journal Entry Created through sales
+
+=== BLOCK 396 ===
+Debtor A/c                     Rahul                   Rs. 10,000
+
+=== BLOCK 397 ===
+Sales A/c                                                                           Rs. 10,000
+
+=== BLOCK 398 ===
+(Invoice date fetch from bill)
+
+=== BLOCK 399 ===
+In case of Invoice journal would always be Sales
+
+=== BLOCK 400 ===
+Each account is assigned an Account Type, which
+would further be used for how the account to be
+treated and where it appears in reports.
+
+=== BLOCK 401 ===
+The Transaction would be connected through Chart of Accounts
+

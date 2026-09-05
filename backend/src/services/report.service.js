@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { ChartOfAccount, JournalItem, JournalEntry, Product, Budget, AnalyticAccount } = require('../models');
+const { ChartOfAccount, JournalItem, JournalEntry, Product, Budget, AnalyticAccount, CustomerInvoice, VendorBill } = require('../models');
 const { add, subtract, multiply, divide, toFixedNumber, areEqual } = require('../utils/decimal');
 
 class ReportService {
@@ -267,24 +267,58 @@ class ReportService {
 
     const report = [];
     for (const b of budgets) {
-      const planned = Number(b.planned_amount);
-      // Determine actual spend from ledger expenses
-      const actual = 0; // Baseline linked to analytic accounts or expenses
-      const remaining = subtract(planned, actual);
-      const utilization = planned > 0 ? multiply(divide(actual, planned), 100) : 0;
+      const planned = Number(b.planned_amount || 0);
+      let actual = 0;
+
+      if (b.analytic_account_id && b.analyticAccount) {
+        const dateFilter = {
+          invoice_date: {
+            [Op.between]: [b.period_start, b.period_end],
+          },
+        };
+
+        if (b.analyticAccount.type === 'income') {
+          const invoices = await CustomerInvoice.findAll({
+            where: {
+              ...dateFilter,
+              analytic_account_id: b.analytic_account_id,
+            },
+          });
+          for (const inv of invoices) {
+            actual = add(actual, Number(inv.total_amount || 0));
+          }
+        } else if (b.analyticAccount.type === 'expense') {
+          const bills = await VendorBill.findAll({
+            where: {
+              ...dateFilter,
+              analytic_account_id: b.analytic_account_id,
+            },
+          });
+          for (const bill of bills) {
+            actual = add(actual, Number(bill.total_amount || 0));
+          }
+        }
+      }
+
+      const actualAmount = toFixedNumber(actual);
+      const remaining = toFixedNumber(Math.max(0, subtract(planned, actualAmount)));
+      const utilization = planned > 0 ? toFixedNumber(multiply(divide(actualAmount, planned), 100)) : 0;
 
       report.push({
         id: b.id,
         name: b.name,
+        status: b.status || 'draft',
+        type: b.analyticAccount ? b.analyticAccount.type : 'expense',
         analyticAccount: b.analyticAccount ? b.analyticAccount.name : 'General',
+        analytic_account_id: b.analytic_account_id,
         period_start: b.period_start,
         period_end: b.period_end,
         responsible_person: b.responsible_person,
         planned_amount: planned,
-        actual_amount: actual,
+        actual_amount: actualAmount,
         remaining_amount: remaining,
         utilization_percent: utilization,
-        is_over_budget: actual > planned,
+        is_over_budget: actualAmount > planned,
       });
     }
 
@@ -338,9 +372,13 @@ class ReportService {
       return {
         id: acc.id,
         account_name: acc.account_name,
+        name: acc.account_name,
         account_type: acc.account_type,
+        type: acc.account_type,
         total_debit: debit,
         total_credit: credit,
+        debit: netDebit,
+        credit: netCredit,
         net_debit: netDebit,
         net_credit: netCredit,
       };
@@ -351,6 +389,8 @@ class ReportService {
       rows,
       grandTotalDebit,
       grandTotalCredit,
+      totalDebit: grandTotalDebit,
+      totalCredit: grandTotalCredit,
       isBalanced: areEqual(grandTotalDebit, grandTotalCredit),
       variance: Math.abs(grandTotalDebit - grandTotalCredit),
     };

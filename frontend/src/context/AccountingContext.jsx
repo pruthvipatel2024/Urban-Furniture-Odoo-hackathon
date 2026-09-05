@@ -90,7 +90,9 @@ export function AccountingProvider({ children }) {
 
   // Formatting Helper
   const formatCurrency = (val) => {
-    const num = Number(val || 0);
+    if (val === null || val === undefined || val === '') return '—';
+    const num = Number(val);
+    if (isNaN(num)) return '—';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -230,26 +232,43 @@ export function AccountingProvider({ children }) {
         setProducts(mappedProducts);
       }
 
-      // Chart of Accounts mapping
+      // Chart of Accounts mapping (Source of truth: MySQL chart_of_accounts + aggregated balances)
       if (coaRes.status === 'fulfilled' && Array.isArray(coaRes.value?.data)) {
-        const mappedCoA = coaRes.value.data.map(a => ({
-          id: String(a.id).startsWith('COA') ? a.id : `COA-100${a.id}`,
-          backendId: a.id,
-          name: a.account_name,
-          type: a.account_type ? (a.account_type.charAt(0).toUpperCase() + a.account_type.slice(1)) : 'Asset',
-          balance: 0,
-          isArchived: Boolean(a.is_archived)
-        }));
+        const mappedCoA = coaRes.value.data.map(a => {
+          const currentBal = Number(a.current_balance ?? 0);
+          return {
+            id: `COA-100${a.id}`,
+            backendId: a.id,
+            code: `COA-100${a.id}`,
+            account_code: `COA-100${a.id}`,
+            name: a.account_name,
+            account_name: a.account_name,
+            type: a.account_type ? (a.account_type.charAt(0).toUpperCase() + a.account_type.slice(1)) : 'Asset',
+            account_type: a.account_type || 'asset',
+            balance: currentBal,
+            currentBalance: currentBal,
+            current_balance: currentBal,
+            totalDebit: Number(a.total_debit ?? 0),
+            totalCredit: Number(a.total_credit ?? 0),
+            isArchived: Boolean(a.is_archived)
+          };
+        });
         setChartOfAccounts(mappedCoA);
       }
 
-      // Journals mapping
+      // Journals mapping (Source of truth: MySQL journals)
       if (journalsRes.status === 'fulfilled' && Array.isArray(journalsRes.value?.data)) {
         const mappedJournals = journalsRes.value.data.map(j => ({
           id: `JRN-0${j.id}`,
           backendId: j.id,
+          code: j.type ? j.type.toUpperCase() : `JRN-0${j.id}`,
+          journal_code: j.type ? j.type.toUpperCase() : `JRN-0${j.id}`,
           name: j.name,
-          type: j.type ? (j.type.charAt(0).toUpperCase() + j.type.slice(1)) : 'General'
+          type: j.type ? (j.type.charAt(0).toUpperCase() + j.type.slice(1)) : 'General',
+          defaultAccountId: j.default_account_id,
+          defaultAccount: j.defaultAccount,
+          defaultDebitAccountName: j.defaultAccount?.account_name || null,
+          defaultCreditAccountName: j.defaultAccount?.account_name || null,
         }));
         setJournals(mappedJournals);
       }
@@ -261,6 +280,8 @@ export function AccountingProvider({ children }) {
           backendId: je.id,
           date: je.entry_date,
           reference: je.reference,
+          status: 'posted',
+          normalizedStatus: 'posted',
           journalType: je.journal?.name || 'General Journal',
           lines: (je.items || []).map(item => ({
             account: item.account?.account_name || 'General Account',
@@ -274,97 +295,176 @@ export function AccountingProvider({ children }) {
 
       // Sales Orders mapping
       if (soRes.status === 'fulfilled' && Array.isArray(soRes.value?.data?.salesOrders)) {
-        const mappedSOs = soRes.value.data.salesOrders.map(so => ({
-          id: `SO-2026-00${so.id}`,
-          backendId: so.id,
-          customerId: so.customer_id,
-          customerName: so.customer?.name || 'Customer',
-          date: so.order_date,
-          status: so.status ? (so.status.charAt(0).toUpperCase() + so.status.slice(1)) : 'Confirmed',
-          delivered: so.status === 'invoiced' || so.status === 'confirmed',
-          subtotal: (so.items || []).reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0),
-          totalAmount: (so.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0),
-          items: (so.items || []).map(item => ({
-            productId: item.product_id,
-            productName: item.product?.name || 'Product',
-            qty: Number(item.quantity || 1),
-            unitPrice: Number(item.unit_price || 0),
-            total: Number(item.line_total || 0)
-          }))
-        }));
+        const mappedSOs = soRes.value.data.salesOrders.map(so => {
+          const totalAmt = Number((so.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0));
+          const subtotalAmt = Number((so.items || []).reduce((sum, i) => sum + (Number(i.quantity || 1) * Number(i.unit_price || 0)), 0));
+          return {
+            id: so.order_number || `SO-2026-00${so.id}`,
+            backendId: so.id,
+            number: so.order_number || `SO-2026-00${so.id}`,
+            orderNumber: so.order_number || `SO-2026-00${so.id}`,
+            analyticAccountId: so.analytic_account_id,
+            customerId: so.customer_id,
+            customerName: so.customer?.name || 'Customer',
+            date: so.order_date,
+            status: so.status ? (so.status.charAt(0).toUpperCase() + so.status.slice(1)) : 'Confirmed',
+            normalizedStatus: (so.status || 'confirmed').toLowerCase(),
+            delivered: (so.status || '').toLowerCase() === 'invoiced' || (so.status || '').toLowerCase() === 'confirmed',
+            subtotal: subtotalAmt,
+            total: totalAmt,
+            totalAmount: totalAmt,
+            items: (so.items || []).map(item => {
+              const qty = Number(item.quantity || 1);
+              const unitPrice = Number(item.unit_price || 0);
+              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
+              return {
+                productId: item.product_id,
+                productName: item.product?.name || 'Product',
+                qty,
+                quantity: qty,
+                unitPrice,
+                price: unitPrice,
+                total: lineTotal,
+                lineTotal
+              };
+            })
+          };
+        });
         setSalesOrders(mappedSOs);
       }
 
-      // Invoices mapping
+      // Customer Invoices mapping
       if (invoicesRes.status === 'fulfilled' && Array.isArray(invoicesRes.value?.data?.invoices)) {
-        const mappedInvoices = invoicesRes.value.data.invoices.map(inv => ({
-          id: `INV-2026-00${inv.id}`,
-          backendId: inv.id,
-          customerId: inv.customer_id,
-          customerName: inv.customer?.name || 'Customer',
-          customerEmail: inv.customer?.email || '',
-          customerPhone: inv.customer?.mobile || '',
-          customerAddress: inv.customer?.address_city ? `${inv.customer.address_city}, ${inv.customer.address_state || ''}` : '',
-          date: inv.invoice_date,
-          dueDate: inv.due_date,
-          totalAmount: Number(inv.total_amount || 0),
-          paidAmount: Number(inv.amount_paid || 0),
-          balance: Number(inv.balance !== undefined ? inv.balance : (Number(inv.total_amount) - Number(inv.amount_paid))),
-          status: inv.payment_status === 'paid' ? 'Paid' : (inv.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
-          items: (inv.salesOrder?.items || []).map(item => ({
-            productId: item.product_id,
-            productName: item.product?.name || 'Product',
-            qty: Number(item.quantity || 1),
-            unitPrice: Number(item.unit_price || 0),
-            total: Number(item.line_total || 0)
-          }))
-        }));
+        const mappedInvoices = invoicesRes.value.data.invoices.map(inv => {
+          const totalAmt = Number(inv.total_amount || 0);
+          const paidAmt = Number(inv.amount_paid || 0);
+          const balAmt = Number(inv.balance !== undefined ? inv.balance : Math.max(0, totalAmt - paidAmt));
+          return {
+            id: inv.invoice_number || `INV-2026-00${inv.id}`,
+            backendId: inv.id,
+            number: inv.invoice_number || `INV-2026-00${inv.id}`,
+            invoiceNumber: inv.invoice_number || `INV-2026-00${inv.id}`,
+            salesOrderId: inv.sales_order_id,
+            salesOrderNumber: inv.salesOrder?.order_number || (inv.sales_order_id ? `SO-2026-00${inv.sales_order_id}` : null),
+            originatingSoNumber: inv.salesOrder?.order_number || (inv.sales_order_id ? `SO-2026-00${inv.sales_order_id}` : null),
+            analyticAccountId: inv.analytic_account_id,
+            customerId: inv.customer_id,
+            customerName: inv.customer?.name || 'Customer',
+            customerEmail: inv.customer?.email || '',
+            customerPhone: inv.customer?.mobile || '',
+            customerAddress: inv.customer?.address_city ? `${inv.customer.address_city}, ${inv.customer.address_state || ''}` : '',
+            date: inv.invoice_date,
+            dueDate: inv.due_date || inv.invoice_date,
+            total: totalAmt,
+            totalAmount: totalAmt,
+            paidAmount: paidAmt,
+            amountPaid: paidAmt,
+            balance: balAmt,
+            amountDue: balAmt,
+            status: inv.payment_status === 'paid' ? 'Paid' : (inv.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
+            normalizedStatus: (inv.payment_status || 'unpaid').toLowerCase(),
+            items: (inv.salesOrder?.items || []).map(item => {
+              const qty = Number(item.quantity || 1);
+              const unitPrice = Number(item.unit_price || 0);
+              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
+              return {
+                productId: item.product_id,
+                productName: item.product?.name || 'Product',
+                qty,
+                quantity: qty,
+                unitPrice,
+                price: unitPrice,
+                total: lineTotal,
+                lineTotal
+              };
+            })
+          };
+        });
         setInvoices(mappedInvoices);
       }
 
       // Purchase Orders mapping
       if (poRes.status === 'fulfilled' && Array.isArray(poRes.value?.data?.purchaseOrders)) {
-        const mappedPOs = poRes.value.data.purchaseOrders.map(po => ({
-          id: `PO-2026-00${po.id}`,
-          backendId: po.id,
-          vendorId: po.vendor_id,
-          vendorName: po.vendor?.name || 'Vendor',
-          date: po.order_date,
-          status: po.status ? (po.status.charAt(0).toUpperCase() + po.status.slice(1)) : 'Confirmed',
-          goodsReceived: po.status === 'billed',
-          totalAmount: (po.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0),
-          items: (po.items || []).map(item => ({
-            productId: item.product_id,
-            productName: item.product?.name || 'Product',
-            qty: Number(item.quantity || 1),
-            unitPrice: Number(item.unit_price || 0),
-            total: Number(item.line_total || 0)
-          }))
-        }));
+        const mappedPOs = poRes.value.data.purchaseOrders.map(po => {
+          const totalAmt = Number((po.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0));
+          return {
+            id: po.order_number || `PO-2026-00${po.id}`,
+            backendId: po.id,
+            number: po.order_number || `PO-2026-00${po.id}`,
+            orderNumber: po.order_number || `PO-2026-00${po.id}`,
+            analyticAccountId: po.analytic_account_id,
+            vendorId: po.vendor_id,
+            vendorName: po.vendor?.name || 'Vendor',
+            date: po.order_date,
+            status: po.status ? (po.status.charAt(0).toUpperCase() + po.status.slice(1)) : 'Confirmed',
+            normalizedStatus: (po.status || 'confirmed').toLowerCase(),
+            goodsReceived: (po.status || '').toLowerCase() === 'billed' || (po.status || '').toLowerCase() === 'received',
+            total: totalAmt,
+            totalAmount: totalAmt,
+            items: (po.items || []).map(item => {
+              const qty = Number(item.quantity || 1);
+              const unitPrice = Number(item.unit_price || 0);
+              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
+              return {
+                productId: item.product_id,
+                productName: item.product?.name || 'Product',
+                qty,
+                quantity: qty,
+                unitPrice,
+                price: unitPrice,
+                total: lineTotal,
+                lineTotal
+              };
+            })
+          };
+        });
         setPurchaseOrders(mappedPOs);
       }
 
       // Vendor Bills mapping
       if (billsRes.status === 'fulfilled' && Array.isArray(billsRes.value?.data?.bills)) {
-        const mappedBills = billsRes.value.data.bills.map(b => ({
-          id: `BILL-2026-00${b.id}`,
-          backendId: b.id,
-          vendorId: b.vendor_id,
-          vendorName: b.vendor?.name || 'Vendor',
-          date: b.invoice_date,
-          dueDate: b.due_date,
-          totalAmount: Number(b.total_amount || 0),
-          paidAmount: Number(b.amount_paid || 0),
-          balance: Number(b.balance !== undefined ? b.balance : (Number(b.total_amount) - Number(b.amount_paid))),
-          status: b.payment_status === 'paid' ? 'Paid' : (b.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
-          items: (b.purchaseOrder?.items || []).map(item => ({
-            productId: item.product_id,
-            productName: item.product?.name || 'Product',
-            qty: Number(item.quantity || 1),
-            unitPrice: Number(item.unit_price || 0),
-            total: Number(item.line_total || 0)
-          }))
-        }));
+        const mappedBills = billsRes.value.data.bills.map(b => {
+          const totalAmt = Number(b.total_amount || 0);
+          const paidAmt = Number(b.amount_paid || 0);
+          const balAmt = Number(b.balance !== undefined ? b.balance : Math.max(0, totalAmt - paidAmt));
+          return {
+            id: b.bill_number || `BILL-2026-00${b.id}`,
+            backendId: b.id,
+            number: b.bill_number || `BILL-2026-00${b.id}`,
+            billNumber: b.bill_number || `BILL-2026-00${b.id}`,
+            purchaseOrderId: b.purchase_order_id,
+            purchaseOrderNumber: b.purchaseOrder?.order_number || (b.purchase_order_id ? `PO-2026-00${b.purchase_order_id}` : null),
+            createdFromPoNumber: b.purchaseOrder?.order_number || (b.purchase_order_id ? `PO-2026-00${b.purchase_order_id}` : null),
+            analyticAccountId: b.analytic_account_id,
+            vendorId: b.vendor_id,
+            vendorName: b.vendor?.name || 'Vendor',
+            date: b.invoice_date,
+            dueDate: b.due_date || b.invoice_date,
+            total: totalAmt,
+            totalAmount: totalAmt,
+            paidAmount: paidAmt,
+            amountPaid: paidAmt,
+            balance: balAmt,
+            amountDue: balAmt,
+            status: b.payment_status === 'paid' ? 'Paid' : (b.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
+            normalizedStatus: (b.payment_status || 'unpaid').toLowerCase(),
+            items: (b.purchaseOrder?.items || []).map(item => {
+              const qty = Number(item.quantity || 1);
+              const unitPrice = Number(item.unit_price || 0);
+              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
+              return {
+                productId: item.product_id,
+                productName: item.product?.name || 'Product',
+                qty,
+                quantity: qty,
+                unitPrice,
+                price: unitPrice,
+                total: lineTotal,
+                lineTotal
+              };
+            })
+          };
+        });
         setVendorBills(mappedBills);
       }
 
@@ -384,18 +484,44 @@ export function AccountingProvider({ children }) {
         setPayments(mappedPayments);
       }
 
+      // Analytic Accounts mapping
+      if (analyticsRes.status === 'fulfilled' && Array.isArray(analyticsRes.value?.data)) {
+        const mappedAnalytics = analyticsRes.value.data.map(a => ({
+          id: String(a.id),
+          backendId: a.id,
+          code: `ANL-00${a.id}`,
+          name: a.name,
+          type: a.type ? (a.type.charAt(0).toUpperCase() + a.type.slice(1)) : 'Expense',
+          budgets: a.budgets || [],
+          budgetsCount: a.budgets ? a.budgets.length : 0,
+        }));
+        setAnalyticAccounts(mappedAnalytics);
+      }
+
       // Budgets mapping
       if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value?.data)) {
         const mappedBudgets = budgetsRes.value.data.map(b => ({
           id: `BDG-2026-0${b.id}`,
           backendId: b.id,
           name: b.name,
+          status: b.status ? (b.status.charAt(0).toUpperCase() + b.status.slice(1)) : 'Draft',
+          normalizedStatus: (b.status || 'draft').toLowerCase(),
+          rawStatus: b.status || 'draft',
+          type: b.analyticAccount ? b.analyticAccount.type : 'expense',
+          analyticAccountId: b.analytic_account_id,
+          analyticAccountName: b.analyticAccount ? b.analyticAccount.name : 'General',
           periodStart: b.period_start,
           periodEnd: b.period_end,
           responsiblePerson: b.responsible_person || 'Admin',
           plannedAmount: Number(b.planned_amount || 0),
-          actualAmount: 0,
-          status: 'Active'
+          committedAmount: Number(b.planned_amount || 0),
+          achievedAmount: Number(b.achieved_amount || 0),
+          achievedPercentage: Number(b.achieved_percentage || 0),
+          amountToAchieve: Number(b.amount_to_achieve !== undefined ? b.amount_to_achieve : Math.max(0, Number(b.planned_amount || 0) - Number(b.achieved_amount || 0))),
+          revisionOfId: b.revision_of_id,
+          revisedBudgetId: b.revised_budget_id,
+          originalBudget: b.originalBudget,
+          revisedBudget: b.revisedBudget,
         }));
         setBudgets(mappedBudgets);
       }
@@ -431,12 +557,12 @@ export function AccountingProvider({ children }) {
   }, []);
 
   // -------------------------------------------------------------
-  // AUTHENTICATION: LOGIN & LOGOUT
+  // AUTHENTICATION: LOGIN, SIGNUP, FORGOT, RESET & LOGOUT
   // -------------------------------------------------------------
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     setAuthLoading(true);
     try {
-      const res = await api.auth.login(email, password);
+      const res = await api.auth.login(identifier, password);
       const user = res.data?.user;
       setCurrentUser(user);
       setIsAuthenticated(true);
@@ -460,10 +586,66 @@ export function AccountingProvider({ children }) {
       await refreshFromBackend();
       return { success: true, user };
     } catch (err) {
-      showToast(err.message || 'Login failed. Please check your credentials.', 'error');
+      showToast(err.message || 'Invalid Login Id or Password', 'error');
       throw err;
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const signup = async (signupData) => {
+    setAuthLoading(true);
+    try {
+      const res = await api.auth.register(signupData);
+      const user = res.data?.user;
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+
+      const rawRole = user?.role ? user.role.toUpperCase() : 'CONTACT';
+      let formattedRole = 'Contact';
+      if (rawRole === 'ADMIN') formattedRole = 'Admin';
+      if (rawRole === 'ACCOUNTANT') formattedRole = 'Accountant';
+
+      setUserRole(formattedRole);
+      if (formattedRole === 'Contact') {
+        setActiveTab('portal');
+        if (user.contact_id) {
+          setActiveContactId(`CNT-00${user.contact_id}`);
+        }
+      } else {
+        setActiveTab('dashboard');
+      }
+
+      showToast('Account created successfully! Welcome to Urban Furniture.', 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(err.message || 'Signup failed.', 'error');
+      throw err;
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const forgotPassword = async (identifier) => {
+    try {
+      const res = await api.auth.forgotPassword(identifier);
+      showToast('Account verified. Please set your new password.', 'success');
+      return res.data;
+    } catch (err) {
+      showToast(err.message || 'Account not found.', 'error');
+      throw err;
+    }
+  };
+
+  const resetPassword = async (resetData) => {
+    try {
+      const res = await api.auth.resetPassword(resetData);
+      showToast('Password updated successfully! Please sign in.', 'success');
+      return res.data;
+    } catch (err) {
+      showToast(err.message || 'Password reset failed.', 'error');
+      throw err;
     }
   };
 
@@ -654,17 +836,70 @@ export function AccountingProvider({ children }) {
 
   const addBudget = async (budgetData) => {
     try {
-      await api.budgets.create({
+      const res = await api.budgets.create({
         name: budgetData.name,
         period_start: budgetData.periodStart || '2026-09-01',
         period_end: budgetData.periodEnd || '2026-09-30',
         responsible_person: budgetData.responsiblePerson || 'Admin',
-        planned_amount: Number(budgetData.plannedAmount || 0)
+        planned_amount: Number(budgetData.plannedAmount || 0),
+        analytic_account_id: budgetData.analyticAccountId ? Number(budgetData.analyticAccountId) : null,
+        status: budgetData.status || 'draft',
       });
-      showToast(`Budget "${budgetData.name}" registered!`, 'success');
+      showToast(`Budget "${budgetData.name}" created!`, 'success');
       await refreshFromBackend();
+      return res.data;
     } catch (err) {
       showToast(`Failed to create budget: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const confirmBudget = async (budgetId) => {
+    try {
+      const rawId = extractBackendId(budgetId, budgets);
+      const res = await api.budgets.confirm(rawId);
+      showToast('Budget confirmed successfully!', 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to confirm budget: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const cancelBudget = async (budgetId) => {
+    try {
+      const rawId = extractBackendId(budgetId, budgets);
+      const res = await api.budgets.cancel(rawId);
+      showToast('Budget cancelled.', 'info');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to cancel budget: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const reviseBudget = async (budgetId, revisionData) => {
+    try {
+      const rawId = extractBackendId(budgetId, budgets);
+      const res = await api.budgets.revise(rawId, revisionData);
+      showToast('Budget revised! New active version created.', 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to revise budget: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const getBudgetTransactions = async (budgetId) => {
+    try {
+      const rawId = extractBackendId(budgetId, budgets);
+      const res = await api.budgets.getTransactions(rawId);
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to fetch transactions: ${err.message}`, 'error');
       throw err;
     }
   };
@@ -691,6 +926,7 @@ export function AccountingProvider({ children }) {
       const res = await api.purchases.create({
         vendorId: rawVendorId,
         orderDate: poData.date || new Date().toISOString().split('T')[0],
+        analyticAccountId: poData.analyticAccountId ? Number(poData.analyticAccountId) : null,
         notes: poData.notes || '',
         items
       });
@@ -751,6 +987,7 @@ export function AccountingProvider({ children }) {
       const res = await api.sales.create({
         customerId: rawCustomerId,
         orderDate: soData.date || new Date().toISOString().split('T')[0],
+        analyticAccountId: soData.analyticAccountId ? Number(soData.analyticAccountId) : null,
         notes: soData.notes || '',
         items
       });
@@ -931,39 +1168,30 @@ export function AccountingProvider({ children }) {
     };
   };
 
-  // Simulated Liquid Balances Calculation (Derived from Backend Ledger + Dashboard)
+  // Liquid Balances Memo (Authoritative from Backend dashboardData with fallback to chartOfAccounts)
   const liquidBalances = useMemo(() => {
-    if (dashboardData?.kpi) {
-      const bank = Number(dashboardData.kpi.bankBalance || 0);
-      const cash = Number(dashboardData.kpi.cashBalance || 0);
-      return {
-        bank,
-        cash,
-        totalLiquid: Number(dashboardData.kpi.liquidFunds !== undefined ? dashboardData.kpi.liquidFunds : (bank + cash))
-      };
+    let bank = Number(dashboardData?.kpi?.bankBalance);
+    let cash = Number(dashboardData?.kpi?.cashBalance);
+
+    if (isNaN(bank) || bank === 0) {
+      const bankAcc = chartOfAccounts.find(a => (a.name || '').toLowerCase() === 'bank' || (a.name || '').toLowerCase().includes('bank'));
+      if (bankAcc) bank = Number(bankAcc.currentBalance ?? bankAcc.balance ?? 0);
+    }
+    if (isNaN(cash) || cash === 0) {
+      const cashAcc = chartOfAccounts.find(a => (a.name || '').toLowerCase() === 'cash' || (a.name || '').toLowerCase().includes('cash'));
+      if (cashAcc) cash = Number(cashAcc.currentBalance ?? cashAcc.balance ?? 0);
     }
 
-    let bank = 100000;
-    let cash = 50000;
-
-    payments.forEach(p => {
-      const amt = Number(p.amount || 0);
-      const isBank = p.method?.toLowerCase().includes('bank');
-      if (p.type === 'Customer Payment') {
-        if (isBank) bank += amt;
-        else cash += amt;
-      } else {
-        if (isBank) bank -= amt;
-        else cash -= amt;
-      }
-    });
+    if (isNaN(bank)) bank = 0;
+    if (isNaN(cash)) cash = 0;
 
     return {
-      bank: Math.max(0, bank),
-      cash: Math.max(0, cash),
-      totalLiquid: Math.max(0, bank) + Math.max(0, cash)
+      bank,
+      cash,
+      total: bank + cash,
+      totalLiquid: bank + cash
     };
-  }, [dashboardData, payments]);
+  }, [dashboardData, chartOfAccounts]);
 
   // Balance Sheet Aggregation (Authoritative from Backend Report with Local Reactive Fallback)
   const balanceSheetData = useMemo(() => {
@@ -1140,6 +1368,45 @@ export function AccountingProvider({ children }) {
     });
   }, [budgetReport, budgets]);
 
+
+  // Trial Balance Data Memo (Authoritative DTO from Backend report)
+  const trialBalanceData = useMemo(() => {
+    if (trialBalanceReport && trialBalanceReport.rows && Array.isArray(trialBalanceReport.rows)) {
+      return {
+        asOfDate: trialBalanceReport.asOfDate || new Date().toISOString().split('T')[0],
+        rows: trialBalanceReport.rows.map(r => ({
+          id: r.id,
+          code: `COA-100${r.id}`,
+          account_name: r.account_name || r.name,
+          name: r.account_name || r.name,
+          account_type: r.account_type || r.type,
+          type: r.account_type ? (r.account_type.charAt(0).toUpperCase() + r.account_type.slice(1)) : (r.type || 'Asset'),
+          debit: Number(r.debit ?? r.net_debit ?? r.total_debit ?? 0),
+          credit: Number(r.credit ?? r.net_credit ?? r.total_credit ?? 0),
+          total_debit: Number(r.total_debit ?? 0),
+          total_credit: Number(r.total_credit ?? 0),
+        })),
+        totalDebit: Number(trialBalanceReport.totalDebit ?? trialBalanceReport.grandTotalDebit ?? 0),
+        totalCredit: Number(trialBalanceReport.totalCredit ?? trialBalanceReport.grandTotalCredit ?? 0),
+        grandTotalDebit: Number(trialBalanceReport.totalDebit ?? trialBalanceReport.grandTotalDebit ?? 0),
+        grandTotalCredit: Number(trialBalanceReport.totalCredit ?? trialBalanceReport.grandTotalCredit ?? 0),
+        isBalanced: Boolean(trialBalanceReport.isBalanced),
+        variance: Number(trialBalanceReport.variance ?? 0)
+      };
+    }
+
+    return {
+      asOfDate: new Date().toISOString().split('T')[0],
+      rows: [],
+      totalDebit: 0,
+      totalCredit: 0,
+      grandTotalDebit: 0,
+      grandTotalCredit: 0,
+      isBalanced: true,
+      variance: 0
+    };
+  }, [trialBalanceReport]);
+
   // Context Bundle
   const contextValue = {
     activeTab,
@@ -1160,6 +1427,9 @@ export function AccountingProvider({ children }) {
     isAuthenticated,
     authLoading,
     login,
+    signup,
+    forgotPassword,
+    resetPassword,
     logout,
 
     // Backend Connectivity
@@ -1198,6 +1468,7 @@ export function AccountingProvider({ children }) {
     stockReport,
     budgetReport,
     trialBalanceReport,
+    trialBalanceData,
     fetchContactLedgerHistory: (id) => api.contacts.getLedgerHistory(id),
 
     // Global Modals
@@ -1218,6 +1489,10 @@ export function AccountingProvider({ children }) {
     addJournal,
     addAnalyticAccount,
     addBudget,
+    confirmBudget,
+    cancelBudget,
+    reviseBudget,
+    getBudgetTransactions,
     createPurchaseOrder,
     receiveGoodsPO,
     convertPOToVendorBill,
