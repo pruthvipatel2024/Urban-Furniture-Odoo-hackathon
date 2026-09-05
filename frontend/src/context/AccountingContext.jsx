@@ -568,6 +568,7 @@ export function AccountingProvider({ children }) {
       customerId: so.customerId,
       customerName: so.customerName,
       customerEmail: customer?.email || 'customer@client.com',
+      customerPhone: customer?.mobile || customer?.phone || '+91 98123 45678',
       customerAddress: customer?.address ? `${customer.address.city}, ${customer.address.state} - ${customer.address.pincode}` : 'Mumbai, India',
       date: invDate,
       dueDate,

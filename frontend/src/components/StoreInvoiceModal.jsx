@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, X, CheckCircle2, Building2, ShieldCheck } from 'lucide-react';
+import { Printer, X, CheckCircle2, Building2, ShieldCheck, Phone } from 'lucide-react';
 
 export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) {
   if (!invoice) return null;
@@ -56,14 +56,23 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
         {/* ========================================================= */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs border border-slate-300 rounded-xl p-4 bg-slate-50/80">
           {/* CUSTOMER INFO */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block border-b border-slate-200 pb-1">
               Customer Info
             </span>
             <p className="font-extrabold text-slate-900 text-sm">{invoice.customerName || 'Walk-in Customer'}</p>
             <p className="text-slate-700">{invoice.customerAddress || 'Mumbai, Maharashtra'}</p>
-            <p className="text-slate-600">{invoice.customerEmail || 'customer@urbanfurniture.in'}</p>
-            {invoice.customerPhone && <p className="text-slate-600">{invoice.customerPhone}</p>}
+            
+            {/* CUSTOMER CONTACT NUMBER */}
+            <div className="flex items-center space-x-1.5 text-xs text-slate-800 font-semibold pt-0.5">
+              <Phone className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span>Contact No:</span>
+              <span className="font-mono font-bold text-indigo-900 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                {invoice.customerPhone || invoice.mobile || invoice.phone || invoice.customerContact || '+91 98123 45678'}
+              </span>
+            </div>
+
+            <p className="text-slate-600 text-[11px]">{invoice.customerEmail || 'customer@urbanfurniture.in'}</p>
           </div>
 
           {/* DATE & BILL INFO */}
