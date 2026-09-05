@@ -85,8 +85,7 @@ export default function Dashboard({
           {/* Subtitle (2 Lines) + Cleanly Aligned Buttons Below */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-              Automated double-entry bookkeeping connecting Master Data, Purchases, Sales,<br className="hidden sm:inline" />
-              Invoices, Payments, Inventory Stock, Budgets, and Real-Time Financial Statements.
+              Where craftsmanship meets cutting-edge management.
             </p>
 
             {/* Quick Action Buttons */}
@@ -236,13 +235,12 @@ export default function Dashboard({
                       <td className="py-3 px-4 font-bold text-emerald-400 font-mono">{formatCurrency(inv.balance)}</td>
                       <td className="py-3 px-4">
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            inv.status === 'Paid'
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : inv.status === 'Partially Paid'
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${inv.status === 'Paid'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : inv.status === 'Partially Paid'
                               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                               : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          }`}
+                            }`}
                         >
                           {inv.status}
                         </span>
