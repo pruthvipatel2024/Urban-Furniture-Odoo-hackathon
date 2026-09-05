@@ -99,21 +99,49 @@ export function AccountingProvider({ children }) {
     }).format(num);
   };
 
+  // Demo User Credentials Mapping
+  const DEMO_CREDENTIALS = {
+    Admin: { email: 'admin@urbanfurniture.com', password: 'admin123' },
+    Accountant: { email: 'accountant@urbanfurniture.com', password: 'accountant123' },
+    Contact: { email: 'nimesh.pathak@techspace.io', password: 'contact123' },
+  };
+
   // -------------------------------------------------------------
   // BACKEND SYNCHRONIZATION ENGINE
   // -------------------------------------------------------------
-  const refreshFromBackend = useCallback(async () => {
+  const ensureAuthenticated = useCallback(async (role = userRole) => {
+    const creds = DEMO_CREDENTIALS[role] || DEMO_CREDENTIALS.Admin;
+    const token = api.getToken();
+
+    if (token) {
+      try {
+        const meRes = await api.auth.me();
+        const currentRole = meRes?.data?.role?.toLowerCase();
+        const targetRole = role.toLowerCase();
+        if (currentRole === targetRole || (targetRole === 'admin' && currentRole === 'admin')) {
+          return true;
+        }
+      } catch {
+        // Token expired or invalid, proceed to login
+      }
+    }
+
+    try {
+      await api.auth.login(creds.email, creds.password);
+      return true;
+    } catch (err) {
+      console.warn(`[Auto-Login] Could not login as ${creds.email}:`, err.message);
+      return false;
+    }
+  }, [userRole]);
+
+  const refreshFromBackend = useCallback(async (targetRole = userRole) => {
     setSyncing(true);
     try {
-      // 1. Authenticate if no token
-      try {
-        await api.auth.me();
-      } catch {
-        // Auto-login default admin for hackathon evaluation demo
-        await api.auth.login('admin@urbanfurniture.com', 'admin123').catch(() => null);
-      }
+      // 1. Authenticate with appropriate credentials before firing requests
+      await ensureAuthenticated(targetRole);
 
-      // 2. Fetch all domain records in parallel
+      // 2. Fetch domain records in parallel
       const [
         contactsRes,
         productsRes,
@@ -355,7 +383,12 @@ export function AccountingProvider({ children }) {
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [ensureAuthenticated]);
+
+  const handleSetUserRole = useCallback(async (newRole) => {
+    setUserRole(newRole);
+    await refreshFromBackend(newRole);
+  }, [refreshFromBackend]);
 
   // Sync on initial mount
   useEffect(() => {
@@ -943,7 +976,7 @@ export function AccountingProvider({ children }) {
     activeTab,
     setActiveTab,
     userRole,
-    setUserRole,
+    setUserRole: handleSetUserRole,
     activeContactId,
     setActiveContactId,
     sidebarOpen,

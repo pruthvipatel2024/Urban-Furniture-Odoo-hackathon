@@ -40,8 +40,8 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'Urban Furniture API Documentation',
 }));
 
-// Health Check Endpoint
-app.get('/api/health', async (req, res) => {
+// Health Check Endpoints
+const healthHandler = async (req, res) => {
   let dbStatus = 'disconnected';
   try {
     await sequelize.authenticate();
@@ -58,7 +58,10 @@ app.get('/api/health', async (req, res) => {
     version: '1.0.0',
     docs: '/api/docs',
   });
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // Master REST API Router
 app.use('/api', apiRoutes);

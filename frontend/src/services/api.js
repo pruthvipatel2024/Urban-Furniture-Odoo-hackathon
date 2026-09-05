@@ -94,6 +94,9 @@ class ApiClient {
 // -------------------------------------------------------------
 
 export const api = {
+  getToken: () => ApiClient.getToken(),
+  setToken: (token) => ApiClient.setToken(token),
+
   // System Health
   health: {
     check: () => ApiClient.get('/health'),
