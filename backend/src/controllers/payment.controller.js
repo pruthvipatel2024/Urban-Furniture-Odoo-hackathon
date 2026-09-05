@@ -99,7 +99,7 @@ class PaymentController {
           return ApiResponse.forbidden(res, 'Contacts can only record payments against Customer Invoices.');
         }
         const inv = await CustomerInvoice.findByPk(customerInvoiceId);
-        if (!inv || inv.customer_id !== req.user.contact_id) {
+        if (!inv || Number(inv.customer_id) !== Number(req.user.contact_id)) {
           return ApiResponse.forbidden(res, 'You do not have permission to pay this customer invoice.');
         }
       }

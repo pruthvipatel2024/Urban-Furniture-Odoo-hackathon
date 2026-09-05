@@ -6,7 +6,7 @@ const { isAdmin, isAdminOrAccountant } = require('../middleware/role.middleware'
 
 router.use(authenticate);
 
-router.get('/', isAdminOrAccountant, ContactController.getContacts);
+router.get('/', ContactController.getContacts);
 router.post('/', isAdminOrAccountant, ContactController.createContact);
 router.get('/:id', ContactController.getContactById);
 router.put('/:id', isAdminOrAccountant, ContactController.updateContact);

@@ -678,15 +678,39 @@ export function AccountingProvider({ children }) {
   // TRANSACTION WORKFLOWS (API CONNECTED)
   // -------------------------------------------------------------
 
+  // -------------------------------------------------------------
+  // HELPER: EXACT BACKEND ID EXTRACTION
+  // -------------------------------------------------------------
+  const extractBackendId = (input, list = []) => {
+    if (!input && input !== 0) return 1;
+    if (typeof input === 'number') return input;
+    if (typeof input === 'object' && input !== null) {
+      if (input.backendId) return Number(input.backendId);
+      if (input.id && typeof input.id === 'number') return input.id;
+      input = input.id;
+    }
+    const str = String(input).trim();
+    const found = list.find(item => item.id === str || String(item.backendId) === str || item.name === str);
+    if (found?.backendId) return Number(found.backendId);
+
+    if (str.includes('-')) {
+      const parts = str.split('-');
+      const lastPart = parts[parts.length - 1];
+      const parsed = parseInt(lastPart, 10);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    const cleanNum = parseInt(str.replace(/\D/g, ''), 10);
+    return isNaN(cleanNum) ? 1 : cleanNum;
+  };
+
   // 1. PURCHASE ORDER WORKFLOW
   const createPurchaseOrder = async (poData) => {
     try {
-      const vendorObj = contacts.find(c => c.id === poData.vendorId);
-      const rawVendorId = vendorObj?.backendId || parseInt(String(poData.vendorId).replace(/\D/g, ''), 10) || 1;
+      const rawVendorId = extractBackendId(poData.vendorId, contacts);
 
       const items = poData.items.map(item => {
-        const prd = products.find(p => p.id === item.productId);
-        const rawPrdId = prd?.backendId || parseInt(String(item.productId).replace(/\D/g, ''), 10) || 1;
+        const rawPrdId = extractBackendId(item.productId, products);
+        const prd = products.find(p => p.backendId === rawPrdId || p.id === item.productId);
         return {
           product_id: rawPrdId,
           quantity: Number(item.qty || 1),
@@ -702,66 +726,35 @@ export function AccountingProvider({ children }) {
       });
 
       showToast(`Purchase Order created in MySQL!`, 'success');
-      refreshFromBackend();
+      await refreshFromBackend();
       return res.data;
     } catch (err) {
-      // Offline fallback
-      const newId = `PO-2026-00${purchaseOrders.length + 1}`;
-      const vendor = contacts.find(c => c.id === poData.vendorId);
-      const items = poData.items.map(item => {
-        const prd = products.find(p => p.id === item.productId);
-        const qty = Number(item.qty || 1);
-        const unitPrice = Number(item.unitPrice || prd?.costPrice || 0);
-        return {
-          productId: item.productId,
-          productName: prd ? prd.name : 'Custom Furniture Item',
-          qty,
-          unitPrice,
-          total: qty * unitPrice
-        };
-      });
-      const totalAmount = items.reduce((s, i) => s + i.total, 0);
-
-      const newPO = {
-        id: newId,
-        vendorId: poData.vendorId,
-        vendorName: vendor ? vendor.name : 'Vendor',
-        date: poData.date || new Date().toISOString().split('T')[0],
-        status: 'Confirmed',
-        goodsReceived: false,
-        items,
-        totalAmount
-      };
-      setPurchaseOrders([newPO, ...purchaseOrders]);
-      showToast(`Purchase Order created: ${err.message}`, 'info');
-      return newPO;
+      showToast(`Purchase order error: ${err.message}`, 'error');
+      throw err;
     }
   };
 
   const receiveGoodsPO = async (poId) => {
     try {
-      const poObj = purchaseOrders.find(p => p.id === poId);
-      const rawPoId = poObj?.backendId || parseInt(String(poId).replace(/\D/g, ''), 10) || 1;
+      const rawPoId = extractBackendId(poId, purchaseOrders);
       await api.purchases.confirm(rawPoId);
-      showToast(`Goods receipt recorded for ${poId}!`, 'success');
-      refreshFromBackend();
-    } catch {
-      setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, goodsReceived: true } : p));
-      showToast(`Goods received for ${poId}.`);
+      showToast(`Goods receipt recorded in MySQL!`, 'success');
+      await refreshFromBackend();
+    } catch (err) {
+      showToast(`Goods receipt error: ${err.message}`, 'error');
     }
   };
 
   const convertPOToVendorBill = async (poId, customDueDate = null) => {
     try {
-      const poObj = purchaseOrders.find(p => p.id === poId);
-      const rawPoId = poObj?.backendId || parseInt(String(poId).replace(/\D/g, ''), 10) || 1;
+      const rawPoId = extractBackendId(poId, purchaseOrders);
 
       const res = await api.bills.generateFromPO(rawPoId, {
         dueDate: customDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       });
 
       showToast(`Vendor Bill generated & Double-Entry posted in MySQL!`, 'success');
-      refreshFromBackend();
+      await refreshFromBackend();
       return res.data;
     } catch (err) {
       showToast(`Failed to generate vendor bill: ${err.message}`, 'error');
@@ -772,12 +765,11 @@ export function AccountingProvider({ children }) {
   // 2. SALES ORDER WORKFLOW
   const createSalesOrder = async (soData) => {
     try {
-      const customerObj = contacts.find(c => c.id === soData.customerId);
-      const rawCustomerId = customerObj?.backendId || parseInt(String(soData.customerId).replace(/\D/g, ''), 10) || 1;
+      const rawCustomerId = extractBackendId(soData.customerId, contacts);
 
       const items = soData.items.map(item => {
-        const prd = products.find(p => p.id === item.productId);
-        const rawPrdId = prd?.backendId || parseInt(String(item.productId).replace(/\D/g, ''), 10) || 1;
+        const rawPrdId = extractBackendId(item.productId, products);
+        const prd = products.find(p => p.backendId === rawPrdId || p.id === item.productId);
         return {
           product_id: rawPrdId,
           quantity: Number(item.qty || 1),
@@ -794,65 +786,35 @@ export function AccountingProvider({ children }) {
       });
 
       showToast(`Sales Order created in MySQL!`, 'success');
-      refreshFromBackend();
+      await refreshFromBackend();
       return res.data;
     } catch (err) {
-      const newId = `SO-2026-00${salesOrders.length + 1}`;
-      const customer = contacts.find(c => c.id === soData.customerId);
-      const items = soData.items.map(item => {
-        const prd = products.find(p => p.id === item.productId);
-        const qty = Number(item.qty || 1);
-        const unitPrice = Number(item.unitPrice || prd?.salesPrice || 0);
-        return {
-          productId: item.productId,
-          productName: prd ? prd.name : 'Custom Furniture',
-          qty,
-          unitPrice,
-          total: qty * unitPrice
-        };
-      });
-      const totalAmount = items.reduce((s, i) => s + i.total, 0);
-
-      const newSO = {
-        id: newId,
-        customerId: soData.customerId,
-        customerName: customer ? customer.name : 'Customer',
-        date: soData.date || new Date().toISOString().split('T')[0],
-        status: 'Confirmed',
-        delivered: false,
-        items,
-        totalAmount
-      };
-      setSalesOrders([newSO, ...salesOrders]);
-      showToast(`Sales order created: ${err.message}`, 'info');
-      return newSO;
+      showToast(`Sales order error: ${err.message}`, 'error');
+      throw err;
     }
   };
 
   const deliverGoodsSO = async (soId) => {
     try {
-      const soObj = salesOrders.find(s => s.id === soId);
-      const rawSoId = soObj?.backendId || parseInt(String(soId).replace(/\D/g, ''), 10) || 1;
+      const rawSoId = extractBackendId(soId, salesOrders);
       await api.sales.confirm(rawSoId);
-      showToast(`Delivery recorded for ${soId}!`, 'success');
-      refreshFromBackend();
-    } catch {
-      setSalesOrders(prev => prev.map(s => s.id === soId ? { ...s, delivered: true } : s));
-      showToast(`Goods delivered for ${soId}.`);
+      showToast(`Delivery recorded in MySQL!`, 'success');
+      await refreshFromBackend();
+    } catch (err) {
+      showToast(`Delivery confirmation error: ${err.message}`, 'error');
     }
   };
 
   const convertSOToCustomerInvoice = async (soId, customDueDate = null) => {
     try {
-      const soObj = salesOrders.find(s => s.id === soId);
-      const rawSoId = soObj?.backendId || parseInt(String(soId).replace(/\D/g, ''), 10) || 1;
+      const rawSoId = extractBackendId(soId, salesOrders);
 
       const res = await api.invoices.generateFromSO(rawSoId, {
         dueDate: customDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       });
 
       showToast(`Customer Invoice generated & Double-Entry posted in MySQL!`, 'success');
-      refreshFromBackend();
+      await refreshFromBackend();
       return res.data;
     } catch (err) {
       showToast(`Failed to generate invoice: ${err.message}`, 'error');
@@ -860,24 +822,33 @@ export function AccountingProvider({ children }) {
     }
   };
 
-  // 3. PAYMENT RECORDING (API CONNECTED)
+  // 3. PAYMENT RECORDING (API CONNECTED & PROPERLY SETTLED)
   const recordPayment = async (paymentData) => {
     try {
       const { docId, docType, method, amount, notes } = paymentData;
-      const isCustomerDoc = docType === 'Customer Invoice' || String(docId).startsWith('INV');
-      const rawDocId = parseInt(String(docId).replace(/\D/g, ''), 10) || 1;
+      const invObj = invoices.find(i => i.id === docId || i.backendId === Number(docId));
+      const billObj = vendorBills.find(b => b.id === docId || b.backendId === Number(docId));
+
+      const isCustomerDoc = docType === 'Customer Invoice' || String(docId).startsWith('INV') || Boolean(invObj);
+
+      let rawDocId;
+      if (isCustomerDoc) {
+        rawDocId = invObj?.backendId || extractBackendId(docId, invoices);
+      } else {
+        rawDocId = billObj?.backendId || extractBackendId(docId, vendorBills);
+      }
 
       const payload = {
         amount: Number(amount),
-        method: method.toLowerCase().includes('bank') ? 'bank' : 'cash',
+        method: method?.toLowerCase().includes('cash') ? 'cash' : 'bank',
         notes: notes || '',
         customerInvoiceId: isCustomerDoc ? rawDocId : null,
         vendorBillId: !isCustomerDoc ? rawDocId : null
       };
 
       const res = await api.payments.record(payload);
-      showToast(`Payment of ${formatCurrency(amount)} posted to Ledger in MySQL!`, 'success');
-      refreshFromBackend();
+      showToast(`Payment of ${formatCurrency(amount)} posted & settled in MySQL Ledger!`, 'success');
+      await refreshFromBackend();
       return res.data;
     } catch (err) {
       showToast(`Payment error: ${err.message}`, 'error');
@@ -889,7 +860,7 @@ export function AccountingProvider({ children }) {
   const createManualJournalEntry = async (entryData) => {
     try {
       const res = await api.journals.createManualEntry({
-        journalId: 1, // Default sales/general journal
+        journalId: 1,
         reference: entryData.reference || 'Manual Adjusting Entry',
         items: entryData.lines.map(l => ({
           account_id: l.accountId || 1,
@@ -900,7 +871,7 @@ export function AccountingProvider({ children }) {
       });
 
       showToast(`Manual Journal Entry posted to MySQL Ledger!`, 'success');
-      refreshFromBackend();
+      await refreshFromBackend();
       return res.data;
     } catch (err) {
       showToast(`Journal Entry error: ${err.message}`, 'error');
@@ -940,11 +911,31 @@ export function AccountingProvider({ children }) {
   };
 
   const getContactHistory = (contactId) => {
-    const contact = contacts.find(c => c.id === contactId);
+    const targetId = contactId || activeContactId;
+    const contact = contacts.find(c => 
+      c.id === targetId || 
+      c.backendId === Number(targetId) || 
+      String(c.backendId) === String(targetId) ||
+      `CNT-00${c.backendId}` === String(targetId)
+    ) || contacts[0];
+
     if (!contact) return { contact: null, invoices: [], vendorBills: [], totalInvoiced: 0, totalReceivable: 0, totalBilled: 0, totalPayable: 0 };
 
-    const contactInvoices = invoices.filter(i => i.customerId === contactId || i.customerName === contact.name);
-    const contactBills = vendorBills.filter(b => b.vendorId === contactId || b.vendorName === contact.name);
+    const contactBackendId = contact.backendId || extractBackendId(contact.id, contacts);
+
+    const contactInvoices = invoices.filter(i => 
+      Number(i.customerId) === Number(contactBackendId) || 
+      i.customerId === contact.id || 
+      `CNT-00${i.customerId}` === contact.id ||
+      i.customerName === contact.name
+    );
+
+    const contactBills = vendorBills.filter(b => 
+      Number(b.vendorId) === Number(contactBackendId) || 
+      b.vendorId === contact.id || 
+      `CNT-00${b.vendorId}` === contact.id ||
+      b.vendorName === contact.name
+    );
 
     const totalInvoiced = contactInvoices.reduce((s, i) => s + Number(i.totalAmount || 0), 0);
     const totalReceivable = contactInvoices.reduce((s, i) => s + Number(i.balance || 0), 0);

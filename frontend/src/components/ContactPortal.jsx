@@ -22,11 +22,17 @@ export default function ContactPortal() {
     getContactHistory,
     setPaymentTargetDoc,
     setShowPaymentModal,
-    formatCurrency
+    formatCurrency,
+    currentUser
   } = useAccounting();
 
-  const activeContact = contacts.find(c => c.id === activeContactId) || contacts[1]; // default Nimesh
-  const history = getContactHistory(activeContact.id);
+  const activeContact = contacts.find(c => 
+    c.id === activeContactId || 
+    c.backendId === Number(activeContactId) ||
+    (currentUser?.contact_id && c.backendId === currentUser.contact_id)
+  ) || contacts.find(c => c.type === 'Customer') || contacts[0] || { id: 'CNT-002', name: 'Nimesh Pathak', type: 'Customer' };
+  
+  const history = getContactHistory(activeContact.id || activeContact.backendId);
 
   const [activePortalTab, setActivePortalTab] = useState(activeContact.type === 'Vendor' ? 'bills' : 'invoices');
 
