@@ -53,67 +53,76 @@ export default function Dashboard({
       <div className="glass-panel bg-gradient-to-r from-[#060a17] via-[#0e1e38] to-[#060a17] p-6 sm:p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden border border-teak-500/30">
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-80 h-80 bg-teak-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start sm:items-center space-x-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xl border-2 border-teak-400/50 shrink-0 teak-glow">
-              <img
-                src="/logo.png"
-                alt="Urban Furniture Official Logo"
-                className="w-full h-full object-contain rounded-xl"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-teak-300 bg-teak-950/80 px-3 py-1 rounded-full border border-teak-700/50 font-display">
-                  ERP Double-Entry Accounting
-                </span>
-                <span className="text-[11px] font-semibold text-emerald-400 flex items-center space-x-1 bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-800/40">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Ledger 100% Balanced</span>
-                </span>
+        <div className="relative z-10 space-y-5">
+          {/* Header Top Row: Logo + Badges + 2-Line Title */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+            <div className="flex items-center space-x-5">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xl border-2 border-teak-400/50 shrink-0 teak-glow">
+                <img
+                  src="/logo.png"
+                  alt="Urban Furniture Official Logo"
+                  className="w-full h-full object-contain rounded-xl"
+                />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-display">
-                Urban Furniture — Accounting Management System
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
-                Automated double-entry bookkeeping connecting Master Data, Purchases, Sales, Invoices, Payments, Inventory Stock, Budgets, and Real-Time Financial Statements.
-              </p>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-teak-300 bg-teak-950/80 px-3 py-0.5 rounded-full border border-teak-700/50 font-display">
+                    ERP Double-Entry Accounting
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center space-x-1 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-800/40">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Ledger 100% Balanced</span>
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-display leading-snug">
+                  <div>Urban Furniture</div>
+                  <div className="text-teak-300">Accounting Management System</div>
+                </h1>
+              </div>
             </div>
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              onClick={() => setShowDemoTourModal(true)}
-              className="flex items-center space-x-2 bg-gradient-to-r from-teak-500 to-teak-600 hover:from-teak-400 hover:to-teak-500 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-teak-500/20 active:scale-95"
-            >
-              <Sparkles className="w-4 h-4 fill-slate-950" />
-              <span>14-Step Demo Tour</span>
-            </button>
+          {/* Subtitle (2 Lines) + Cleanly Aligned Buttons Below */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+              Automated double-entry bookkeeping connecting Master Data, Purchases, Sales,<br className="hidden sm:inline" />
+              Invoices, Payments, Inventory Stock, Budgets, and Real-Time Financial Statements.
+            </p>
 
-            <button
-              onClick={onOpenNewInvoice}
-              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/30 active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Sales Order</span>
-            </button>
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                onClick={() => setShowDemoTourModal(true)}
+                className="flex items-center space-x-2 bg-gradient-to-r from-teak-500 to-teak-600 hover:from-teak-400 hover:to-teak-500 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-teak-500/20 active:scale-95"
+              >
+                <Sparkles className="w-4 h-4 fill-slate-950" />
+                <span>14-Step Demo Tour</span>
+              </button>
 
-            <button
-              onClick={onOpenNewBill}
-              className="flex items-center space-x-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-amber-900/30 active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Purchase Order</span>
-            </button>
+              <button
+                onClick={onOpenNewInvoice}
+                className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/30 active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Sales Order</span>
+              </button>
 
-            <button
-              onClick={onOpenPaymentModal}
-              className="flex items-center space-x-2 bg-navy-700 hover:bg-navy-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all border border-navy-500/50 shadow-lg active:scale-95"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Register Payment</span>
-            </button>
+              <button
+                onClick={onOpenNewBill}
+                className="flex items-center space-x-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-amber-900/30 active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Purchase Order</span>
+              </button>
+
+              <button
+                onClick={onOpenPaymentModal}
+                className="flex items-center space-x-2 bg-navy-700 hover:bg-navy-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all border border-navy-500/50 shadow-lg active:scale-95"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Register Payment</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
