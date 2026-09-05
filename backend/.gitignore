@@ -10,5 +10,9 @@ node_modules/
 *.log
 npm-debug.log*
 
+# Uploads & Media
+uploads/
+*/uploads/
+
 # Coverage
 coverage/

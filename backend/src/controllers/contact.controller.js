@@ -76,27 +76,45 @@ class ContactController {
    */
   static async createContact(req, res, next) {
     try {
-      const { name, type, email, mobile, address_city, address_state, address_pincode, profile_image } = req.body;
+      const { name, type, email, mobile, phone, address_city, address_state, address_pincode, profile_image } = req.body;
 
       if (!name || !type) {
+        if (req.uploadedFile?.filepath) {
+          try { require('fs').unlinkSync(req.uploadedFile.filepath); } catch (_) {}
+        }
         return ApiResponse.badRequest(res, 'Name and contact type (customer, vendor, both) are required.');
       }
 
-      if (!['customer', 'vendor', 'both'].includes(type)) {
+      const normType = (type || '').trim().toLowerCase();
+      if (!['customer', 'vendor', 'both'].includes(normType)) {
+        if (req.uploadedFile?.filepath) {
+          try { require('fs').unlinkSync(req.uploadedFile.filepath); } catch (_) {}
+        }
         return ApiResponse.badRequest(res, 'Contact type must be "customer", "vendor", or "both".');
       }
 
-      const contact = await Contact.create({
-        name,
-        type,
-        email,
-        mobile,
-        address_city,
-        address_state,
-        address_pincode,
-        profile_image,
-        is_archived: false,
-      });
+      const photoUrl = req.uploadedFile ? req.uploadedFile.url : (profile_image || null);
+
+      let contact;
+      try {
+        contact = await Contact.create({
+          name: name.trim(),
+          type: normType,
+          email,
+          mobile: mobile || phone || null,
+          address_city,
+          address_state,
+          address_pincode,
+          profile_image: photoUrl,
+          is_archived: false,
+        });
+      } catch (dbErr) {
+        // If DB insert fails after a new file was uploaded, delete the new file to prevent orphaned files
+        if (req.uploadedFile?.filepath) {
+          try { require('fs').unlinkSync(req.uploadedFile.filepath); } catch (_) {}
+        }
+        throw dbErr;
+      }
 
       await logAudit({
         req,
@@ -119,22 +137,72 @@ class ContactController {
     try {
       const contact = await Contact.findByPk(req.params.id);
       if (!contact) {
+        if (req.uploadedFile?.filepath) {
+          try { require('fs').unlinkSync(req.uploadedFile.filepath); } catch (_) {}
+        }
         return ApiResponse.notFound(res, `Contact with ID ${req.params.id} not found.`);
       }
 
-      const oldVal = contact.toJSON();
-      const { name, type, email, mobile, address_city, address_state, address_pincode, profile_image } = req.body;
+      // Stale edit protection: optimistic concurrency check if client sends updated_at
+      const clientUpdatedAt = req.body.last_updated_at || req.body.updated_at;
+      if (clientUpdatedAt && contact.updated_at) {
+        const clientTime = new Date(clientUpdatedAt).getTime();
+        const dbTime = new Date(contact.updated_at).getTime();
+        if (dbTime - clientTime > 2000) {
+          if (req.uploadedFile?.filepath) {
+            try { require('fs').unlinkSync(req.uploadedFile.filepath); } catch (_) {}
+          }
+          return ApiResponse.conflict(res, 'This record was modified by another operation. Please reload before saving.');
+        }
+      }
 
-      if (name) contact.name = name;
-      if (type && ['customer', 'vendor', 'both'].includes(type)) contact.type = type;
+      const oldVal = contact.toJSON();
+      const oldImage = contact.profile_image;
+      const { name, type, email, mobile, phone, address_city, address_state, address_pincode } = req.body;
+
+      if (name) contact.name = name.trim();
+      if (type) {
+        const normType = type.trim().toLowerCase();
+        if (['customer', 'vendor', 'both'].includes(normType)) contact.type = normType;
+      }
       if (email !== undefined) contact.email = email;
       if (mobile !== undefined) contact.mobile = mobile;
+      else if (phone !== undefined) contact.mobile = phone;
       if (address_city !== undefined) contact.address_city = address_city;
       if (address_state !== undefined) contact.address_state = address_state;
       if (address_pincode !== undefined) contact.address_pincode = address_pincode;
-      if (profile_image !== undefined) contact.profile_image = profile_image;
 
-      await contact.save();
+      let newPhotoUploaded = false;
+      if (req.uploadedFile) {
+        contact.profile_image = req.uploadedFile.url;
+        newPhotoUploaded = true;
+      } else if (req.body.profile_image !== undefined) {
+        contact.profile_image = req.body.profile_image;
+      }
+
+      try {
+        await contact.save();
+      } catch (saveErr) {
+        // If DB update fails after a new file was uploaded, delete the new file to prevent orphaned files
+        if (req.uploadedFile?.filepath) {
+          try { require('fs').unlinkSync(req.uploadedFile.filepath); } catch (_) {}
+        }
+        throw saveErr;
+      }
+
+      // Best effort cleanup of previous local photo only AFTER successful DB update
+      if (newPhotoUploaded && oldImage && oldImage.startsWith('/uploads/contacts/')) {
+        try {
+          const path = require('path');
+          const fs = require('fs');
+          const oldFilePath = path.join(__dirname, '../../', oldImage);
+          if (fs.existsSync(oldFilePath)) {
+            fs.unlinkSync(oldFilePath);
+          }
+        } catch (cleanupErr) {
+          console.warn('[Contact Photo Cleanup Warning]: Could not unlink old file:', cleanupErr.message);
+        }
+      }
 
       await logAudit({
         req,

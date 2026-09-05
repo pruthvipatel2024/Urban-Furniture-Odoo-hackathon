@@ -1,11 +1,101 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { getDraft, saveDraft, clearDraft, getDraftKey } from '../utils/draftStorage';
+
+const TAB_TO_HASH = {
+  'dashboard': '#/dashboard',
+  'master': '#/master/contacts',
+  'master-contacts': '#/master/contacts',
+  'master-products': '#/master/products',
+  'master-coa': '#/master/accounts',
+  'master-journals': '#/master/journals',
+  'master-analytics': '#/master/analytics',
+  'purchase': '#/purchase/bills',
+  'purchase-orders': '#/purchase/orders',
+  'purchase-bills': '#/purchase/bills',
+  'purchase-payments': '#/purchase/payments',
+  'sales': '#/sales/invoices',
+  'sales-orders': '#/sales/orders',
+  'sales-invoices': '#/sales/invoices',
+  'sales-receipts': '#/sales/receipts',
+  'payments': '#/payments',
+  'journal-entries': '#/journals',
+  'journals': '#/journals',
+  'budgets': '#/budgets',
+  'reports': '#/reports/balance-sheet',
+  'reports-pnl': '#/reports/pnl',
+  'reports-budget': '#/reports/budget',
+  'reports-stock': '#/reports/stock',
+  'reports-trial-balance': '#/reports/trial-balance',
+  'portal': '#/portal',
+};
+
+const HASH_TO_TAB = {
+  '#/dashboard': 'dashboard',
+  '#/master/contacts': 'master-contacts',
+  '#/master/products': 'master-products',
+  '#/master/accounts': 'master-coa',
+  '#/master/journals': 'master-journals',
+  '#/master/analytics': 'master-analytics',
+  '#/purchase/orders': 'purchase-orders',
+  '#/purchase/bills': 'purchase-bills',
+  '#/purchase/payments': 'purchase-payments',
+  '#/sales/orders': 'sales-orders',
+  '#/sales/invoices': 'sales-invoices',
+  '#/sales/receipts': 'sales-receipts',
+  '#/payments': 'payments',
+  '#/journals': 'journal-entries',
+  '#/budgets': 'budgets',
+  '#/reports/pnl': 'reports-pnl',
+  '#/reports/budget': 'reports-budget',
+  '#/reports/stock': 'reports-stock',
+  '#/reports/trial-balance': 'reports-trial-balance',
+  '#/reports/balance-sheet': 'reports',
+  '#/portal': 'portal',
+};
+
+const getInitialTab = () => {
+  if (typeof window !== 'undefined' && window.location.hash) {
+    const hash = window.location.hash.toLowerCase().trim();
+    if (HASH_TO_TAB[hash]) return HASH_TO_TAB[hash];
+    for (const [h, t] of Object.entries(HASH_TO_TAB)) {
+      if (hash.startsWith(h)) return t;
+    }
+  }
+  return 'dashboard';
+};
 
 const AccountingContext = createContext();
 
 export function AccountingProvider({ children }) {
-  // Navigation & Active View
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Navigation & Active View with Hash Sync
+  const [activeTab, setActiveTabState] = useState(getInitialTab);
+
+  const setActiveTab = useCallback((tab) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      const targetHash = TAB_TO_HASH[tab] || ('#/' + tab);
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase().trim();
+      const matchedTab = HASH_TO_TAB[hash];
+      if (matchedTab) {
+        setActiveTabState(matchedTab);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    if (!window.location.hash) {
+      window.location.hash = TAB_TO_HASH[activeTab] || '#/dashboard';
+    }
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
+
   const [userRole, setUserRole] = useState('Admin'); // 'Admin' | 'Accountant' | 'Contact'
   const [activeContactId, setActiveContactId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -296,8 +386,34 @@ export function AccountingProvider({ children }) {
       // Sales Orders mapping
       if (soRes.status === 'fulfilled' && Array.isArray(soRes.value?.data?.salesOrders)) {
         const mappedSOs = soRes.value.data.salesOrders.map(so => {
-          const totalAmt = Number((so.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0));
-          const subtotalAmt = Number((so.items || []).reduce((sum, i) => sum + (Number(i.quantity || 1) * Number(i.unit_price || 0)), 0));
+          const mappedItems = (so.items || []).map(item => {
+            const qty = Number(item.quantity || 1);
+            const unitPrice = Number(item.unit_price || 0);
+            const taxPercent = Number(item.tax_percent !== undefined ? item.tax_percent : 18);
+            const lineBase = qty * unitPrice;
+            const taxAmt = (lineBase * taxPercent) / 100;
+            const lineTotal = Number(item.line_total !== undefined ? item.line_total : (lineBase + taxAmt));
+            return {
+              id: item.id,
+              productId: item.product_id,
+              productName: item.product?.name || 'Product',
+              qty,
+              quantity: qty,
+              unitPrice,
+              price: unitPrice,
+              taxPercent,
+              tax_percent: taxPercent,
+              subtotal: lineBase,
+              taxAmount: taxAmt,
+              total: lineTotal,
+              lineTotal
+            };
+          });
+
+          const subtotalAmt = mappedItems.reduce((sum, i) => sum + i.subtotal, 0);
+          const totalTaxAmt = mappedItems.reduce((sum, i) => sum + i.taxAmount, 0);
+          const totalAmt = mappedItems.reduce((sum, i) => sum + i.total, 0) || (subtotalAmt + totalTaxAmt);
+
           return {
             id: so.order_number || `SO-2026-00${so.id}`,
             backendId: so.id,
@@ -311,23 +427,11 @@ export function AccountingProvider({ children }) {
             normalizedStatus: (so.status || 'confirmed').toLowerCase(),
             delivered: (so.status || '').toLowerCase() === 'invoiced' || (so.status || '').toLowerCase() === 'confirmed',
             subtotal: subtotalAmt,
+            taxAmount: totalTaxAmt,
+            tax: totalTaxAmt,
             total: totalAmt,
             totalAmount: totalAmt,
-            items: (so.items || []).map(item => {
-              const qty = Number(item.quantity || 1);
-              const unitPrice = Number(item.unit_price || 0);
-              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
-              return {
-                productId: item.product_id,
-                productName: item.product?.name || 'Product',
-                qty,
-                quantity: qty,
-                unitPrice,
-                price: unitPrice,
-                total: lineTotal,
-                lineTotal
-              };
-            })
+            items: mappedItems
           };
         });
         setSalesOrders(mappedSOs);
@@ -339,6 +443,38 @@ export function AccountingProvider({ children }) {
           const totalAmt = Number(inv.total_amount || 0);
           const paidAmt = Number(inv.amount_paid || 0);
           const balAmt = Number(inv.balance !== undefined ? inv.balance : Math.max(0, totalAmt - paidAmt));
+
+          const mappedItems = (inv.salesOrder?.items || []).map(item => {
+            const qty = Number(item.quantity || 1);
+            const unitPrice = Number(item.unit_price || 0);
+            const taxPercent = Number(item.tax_percent !== undefined ? item.tax_percent : 18);
+            const lineBase = qty * unitPrice;
+            const taxAmt = (lineBase * taxPercent) / 100;
+            const lineTotal = Number(item.line_total !== undefined ? item.line_total : (lineBase + taxAmt));
+            return {
+              id: item.id,
+              productId: item.product_id,
+              productName: item.product?.name || 'Product',
+              qty,
+              quantity: qty,
+              unitPrice,
+              price: unitPrice,
+              taxPercent,
+              tax_percent: taxPercent,
+              subtotal: lineBase,
+              taxAmount: taxAmt,
+              total: lineTotal,
+              lineTotal
+            };
+          });
+
+          const subtotalAmt = mappedItems.length > 0
+            ? mappedItems.reduce((sum, i) => sum + i.subtotal, 0)
+            : (totalAmt > 0 ? (totalAmt / 1.18) : 0);
+          const totalTaxAmt = mappedItems.length > 0
+            ? mappedItems.reduce((sum, i) => sum + i.taxAmount, 0)
+            : (totalAmt - subtotalAmt);
+
           return {
             id: inv.invoice_number || `INV-2026-00${inv.id}`,
             backendId: inv.id,
@@ -355,6 +491,9 @@ export function AccountingProvider({ children }) {
             customerAddress: inv.customer?.address_city ? `${inv.customer.address_city}, ${inv.customer.address_state || ''}` : '',
             date: inv.invoice_date,
             dueDate: inv.due_date || inv.invoice_date,
+            subtotal: subtotalAmt,
+            taxAmount: totalTaxAmt,
+            tax: totalTaxAmt,
             total: totalAmt,
             totalAmount: totalAmt,
             paidAmount: paidAmt,
@@ -363,21 +502,7 @@ export function AccountingProvider({ children }) {
             amountDue: balAmt,
             status: inv.payment_status === 'paid' ? 'Paid' : (inv.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
             normalizedStatus: (inv.payment_status || 'unpaid').toLowerCase(),
-            items: (inv.salesOrder?.items || []).map(item => {
-              const qty = Number(item.quantity || 1);
-              const unitPrice = Number(item.unit_price || 0);
-              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
-              return {
-                productId: item.product_id,
-                productName: item.product?.name || 'Product',
-                qty,
-                quantity: qty,
-                unitPrice,
-                price: unitPrice,
-                total: lineTotal,
-                lineTotal
-              };
-            })
+            items: mappedItems
           };
         });
         setInvoices(mappedInvoices);
@@ -386,7 +511,29 @@ export function AccountingProvider({ children }) {
       // Purchase Orders mapping
       if (poRes.status === 'fulfilled' && Array.isArray(poRes.value?.data?.purchaseOrders)) {
         const mappedPOs = poRes.value.data.purchaseOrders.map(po => {
-          const totalAmt = Number((po.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0));
+          const mappedItems = (po.items || []).map(item => {
+            const qty = Number(item.quantity || 1);
+            const unitPrice = Number(item.unit_price || 0);
+            const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
+            return {
+              id: item.id,
+              productId: item.product_id,
+              productName: item.product?.name || 'Product',
+              qty,
+              quantity: qty,
+              unitPrice,
+              price: unitPrice,
+              taxPercent: 0,
+              tax_percent: 0,
+              subtotal: lineTotal,
+              taxAmount: 0,
+              total: lineTotal,
+              lineTotal
+            };
+          });
+
+          const totalAmt = mappedItems.reduce((sum, i) => sum + i.total, 0);
+
           return {
             id: po.order_number || `PO-2026-00${po.id}`,
             backendId: po.id,
@@ -399,23 +546,12 @@ export function AccountingProvider({ children }) {
             status: po.status ? (po.status.charAt(0).toUpperCase() + po.status.slice(1)) : 'Confirmed',
             normalizedStatus: (po.status || 'confirmed').toLowerCase(),
             goodsReceived: (po.status || '').toLowerCase() === 'billed' || (po.status || '').toLowerCase() === 'received',
+            subtotal: totalAmt,
+            taxAmount: 0,
+            tax: 0,
             total: totalAmt,
             totalAmount: totalAmt,
-            items: (po.items || []).map(item => {
-              const qty = Number(item.quantity || 1);
-              const unitPrice = Number(item.unit_price || 0);
-              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
-              return {
-                productId: item.product_id,
-                productName: item.product?.name || 'Product',
-                qty,
-                quantity: qty,
-                unitPrice,
-                price: unitPrice,
-                total: lineTotal,
-                lineTotal
-              };
-            })
+            items: mappedItems
           };
         });
         setPurchaseOrders(mappedPOs);
@@ -427,6 +563,28 @@ export function AccountingProvider({ children }) {
           const totalAmt = Number(b.total_amount || 0);
           const paidAmt = Number(b.amount_paid || 0);
           const balAmt = Number(b.balance !== undefined ? b.balance : Math.max(0, totalAmt - paidAmt));
+
+          const mappedItems = (b.purchaseOrder?.items || []).map(item => {
+            const qty = Number(item.quantity || 1);
+            const unitPrice = Number(item.unit_price || 0);
+            const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
+            return {
+              id: item.id,
+              productId: item.product_id,
+              productName: item.product?.name || 'Product',
+              qty,
+              quantity: qty,
+              unitPrice,
+              price: unitPrice,
+              taxPercent: 0,
+              tax_percent: 0,
+              subtotal: lineTotal,
+              taxAmount: 0,
+              total: lineTotal,
+              lineTotal
+            };
+          });
+
           return {
             id: b.bill_number || `BILL-2026-00${b.id}`,
             backendId: b.id,
@@ -440,6 +598,9 @@ export function AccountingProvider({ children }) {
             vendorName: b.vendor?.name || 'Vendor',
             date: b.invoice_date,
             dueDate: b.due_date || b.invoice_date,
+            subtotal: totalAmt,
+            taxAmount: 0,
+            tax: 0,
             total: totalAmt,
             totalAmount: totalAmt,
             paidAmount: paidAmt,
@@ -448,21 +609,7 @@ export function AccountingProvider({ children }) {
             amountDue: balAmt,
             status: b.payment_status === 'paid' ? 'Paid' : (b.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
             normalizedStatus: (b.payment_status || 'unpaid').toLowerCase(),
-            items: (b.purchaseOrder?.items || []).map(item => {
-              const qty = Number(item.quantity || 1);
-              const unitPrice = Number(item.unit_price || 0);
-              const lineTotal = Number(item.line_total !== undefined ? item.line_total : (qty * unitPrice));
-              return {
-                productId: item.product_id,
-                productName: item.product?.name || 'Product',
-                qty,
-                quantity: qty,
-                unitPrice,
-                price: unitPrice,
-                total: lineTotal,
-                lineTotal
-              };
-            })
+            items: mappedItems
           };
         });
         setVendorBills(mappedBills);
@@ -715,27 +862,99 @@ export function AccountingProvider({ children }) {
   }, [refreshFromBackend]);
 
   // -------------------------------------------------------------
-  // MASTER DATA ACTIONS (API CONNECTED)
+  // MASTER DATA ACTIONS (API CONNECTED WITH IN-PLACE UPDATE INTEGRITY)
   // -------------------------------------------------------------
   const addContact = async (contactData) => {
     try {
-      const typeFormatted = (contactData.type || 'Customer').toLowerCase();
-      const res = await api.contacts.create({
-        name: contactData.name,
-        type: typeFormatted === 'both' ? 'both' : (typeFormatted.includes('vendor') ? 'vendor' : 'customer'),
-        email: contactData.email || null,
-        mobile: contactData.mobile || null,
-        address_city: contactData.city || 'Mumbai',
-        address_state: contactData.state || 'Maharashtra',
-        address_pincode: contactData.pincode || '400001',
-        profile_image: contactData.profileImage || null
-      });
+      let payload;
+      const isFd = typeof FormData !== 'undefined' && contactData instanceof FormData;
+      if (isFd) {
+        payload = contactData;
+      } else {
+        const photoFile = contactData.photoFile || (contactData.photo instanceof File ? contactData.photo : null);
+        const typeFormatted = (contactData.type || 'Customer').toLowerCase();
+        const cleanType = typeFormatted === 'both' ? 'both' : (typeFormatted.includes('vendor') ? 'vendor' : 'customer');
 
-      showToast(`Contact "${contactData.name}" created successfully!`, 'success');
+        if (photoFile) {
+          payload = new FormData();
+          payload.append('name', contactData.name || '');
+          payload.append('type', cleanType);
+          if (contactData.email) payload.append('email', contactData.email);
+          if (contactData.mobile) payload.append('mobile', contactData.mobile);
+          payload.append('address_city', contactData.city || 'Mumbai');
+          payload.append('address_state', contactData.state || 'Maharashtra');
+          payload.append('address_pincode', contactData.pincode || '400001');
+          payload.append('photo', photoFile);
+        } else {
+          payload = {
+            name: contactData.name,
+            type: cleanType,
+            email: contactData.email || null,
+            mobile: contactData.mobile || null,
+            address_city: contactData.city || 'Mumbai',
+            address_state: contactData.state || 'Maharashtra',
+            address_pincode: contactData.pincode || '400001',
+            profile_image: contactData.profileImage || null
+          };
+        }
+      }
+
+      const res = await api.contacts.create(payload);
+      showToast(`Contact "${contactData.name || 'Record'}" created successfully!`, 'success');
       await refreshFromBackend();
       return res.data;
     } catch (err) {
       showToast(`Failed to create contact: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const updateContact = async (contactId, contactData) => {
+    try {
+      const contactObj = contacts.find(c => c.id === contactId || c.backendId === Number(contactId));
+      const rawId = contactObj?.backendId || extractBackendId(contactId, contacts);
+
+      let payload;
+      const isFd = typeof FormData !== 'undefined' && contactData instanceof FormData;
+      if (isFd) {
+        payload = contactData;
+      } else {
+        const photoFile = contactData.photoFile || (contactData.photo instanceof File ? contactData.photo : null);
+        const typeFormatted = (contactData.type || contactObj?.type || 'Customer').toLowerCase();
+        const cleanType = typeFormatted === 'both' ? 'both' : (typeFormatted.includes('vendor') ? 'vendor' : 'customer');
+
+        if (photoFile) {
+          payload = new FormData();
+          if (contactData.name) payload.append('name', contactData.name);
+          payload.append('type', cleanType);
+          if (contactData.email !== undefined) payload.append('email', contactData.email || '');
+          if (contactData.mobile !== undefined) payload.append('mobile', contactData.mobile || '');
+          if (contactData.city !== undefined) payload.append('address_city', contactData.city);
+          if (contactData.state !== undefined) payload.append('address_state', contactData.state);
+          if (contactData.pincode !== undefined) payload.append('address_pincode', contactData.pincode);
+          payload.append('photo', photoFile);
+        } else {
+          payload = {
+            name: contactData.name !== undefined ? contactData.name : contactObj?.name,
+            type: cleanType,
+            email: contactData.email !== undefined ? contactData.email : (contactObj?.email || null),
+            mobile: contactData.mobile !== undefined ? contactData.mobile : (contactObj?.mobile || null),
+            address_city: contactData.city !== undefined ? contactData.city : (contactObj?.address?.city || 'Mumbai'),
+            address_state: contactData.state !== undefined ? contactData.state : (contactObj?.address?.state || 'Maharashtra'),
+            address_pincode: contactData.pincode !== undefined ? contactData.pincode : (contactObj?.address?.pincode || '400001'),
+          };
+          if (contactData.profileImage !== undefined) {
+            payload.profile_image = contactData.profileImage;
+          }
+        }
+      }
+
+      const res = await api.contacts.update(rawId, payload);
+      showToast(`Contact updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to update contact: ${err.message}`, 'error');
       throw err;
     }
   };
@@ -774,6 +993,30 @@ export function AccountingProvider({ children }) {
     }
   };
 
+  const updateProduct = async (productId, productData) => {
+    try {
+      const prd = products.find(p => p.id === productId || p.backendId === productId);
+      const rawId = prd?.backendId || extractBackendId(productId, products);
+      const typeFormatted = (productData.type || prd?.type || 'Goods').toLowerCase();
+
+      const res = await api.products.update(rawId, {
+        name: productData.name !== undefined ? productData.name : prd?.name,
+        type: ['goods', 'service', 'combo'].includes(typeFormatted) ? typeFormatted : 'goods',
+        sales_price: productData.salesPrice !== undefined ? Number(productData.salesPrice) : Number(prd?.salesPrice || 0),
+        cost_price: productData.costPrice !== undefined ? Number(productData.costPrice) : Number(prd?.costPrice || 0),
+        category: productData.category !== undefined ? productData.category : (prd?.category || 'General Furniture'),
+        stock_quantity: productData.stock !== undefined ? Number(productData.stock) : Number(prd?.stock || 0)
+      });
+
+      showToast(`Product updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to update product: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
   const adjustProductStock = async (productId, newStock, reason = 'Inventory Count Adjustment') => {
     try {
       const prd = products.find(p => p.id === productId || p.backendId === productId);
@@ -806,6 +1049,25 @@ export function AccountingProvider({ children }) {
     }
   };
 
+  const updateChartOfAccount = async (accountId, accountData) => {
+    try {
+      const acc = chartOfAccounts.find(a => a.id === accountId || a.backendId === accountId);
+      const rawId = acc?.backendId || extractBackendId(accountId, chartOfAccounts);
+
+      const res = await api.accounts.update(rawId, {
+        account_name: accountData.name || accountData.account_name,
+        account_type: (accountData.type || accountData.account_type || 'Asset').toLowerCase()
+      });
+
+      showToast(`Account updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to update account: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
   const addJournal = async (journalData) => {
     try {
       await api.journals.create({
@@ -820,6 +1082,26 @@ export function AccountingProvider({ children }) {
     }
   };
 
+  const updateJournal = async (journalId, journalData) => {
+    try {
+      const jrn = journals.find(j => j.id === journalId || j.backendId === journalId);
+      const rawId = jrn?.backendId || extractBackendId(journalId, journals);
+
+      const res = await api.journals.update(rawId, {
+        name: journalData.name,
+        type: (journalData.type || 'sales').toLowerCase(),
+        default_account_id: journalData.defaultAccountId ? extractBackendId(journalData.defaultAccountId, chartOfAccounts) : null
+      });
+
+      showToast(`Journal updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to update journal: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
   const addAnalyticAccount = async (analyticData) => {
     try {
       await api.budgets.createAnalytic({
@@ -830,6 +1112,25 @@ export function AccountingProvider({ children }) {
       await refreshFromBackend();
     } catch (err) {
       showToast(`Failed to create analytic account: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const updateAnalyticAccount = async (analyticId, analyticData) => {
+    try {
+      const item = analyticAccounts.find(a => a.id === analyticId || a.backendId === analyticId);
+      const rawId = item?.backendId || extractBackendId(analyticId, analyticAccounts);
+
+      const res = await api.budgets.updateAnalytic(rawId, {
+        name: analyticData.name,
+        type: (analyticData.type || 'expense').toLowerCase()
+      });
+
+      showToast(`Analytic Account updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to update analytic account: ${err.message}`, 'error');
       throw err;
     }
   };
@@ -850,6 +1151,29 @@ export function AccountingProvider({ children }) {
       return res.data;
     } catch (err) {
       showToast(`Failed to create budget: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const updateBudget = async (budgetId, budgetData) => {
+    try {
+      const bgt = budgets.find(b => b.id === budgetId || b.backendId === budgetId);
+      const rawId = bgt?.backendId || extractBackendId(budgetId, budgets);
+
+      const res = await api.budgets.update(rawId, {
+        name: budgetData.name,
+        period_start: budgetData.periodStart || bgt?.periodStart || '2026-09-01',
+        period_end: budgetData.periodEnd || bgt?.periodEnd || '2026-09-30',
+        responsible_person: budgetData.responsiblePerson || bgt?.responsiblePerson || 'Admin',
+        planned_amount: budgetData.plannedAmount !== undefined ? Number(budgetData.plannedAmount) : Number(bgt?.plannedAmount || 0),
+        analytic_account_id: budgetData.analyticAccountId ? Number(budgetData.analyticAccountId) : null,
+      });
+
+      showToast(`Budget updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to update budget: ${err.message}`, 'error');
       throw err;
     }
   };
@@ -940,6 +1264,39 @@ export function AccountingProvider({ children }) {
     }
   };
 
+  const updatePurchaseOrder = async (poId, poData) => {
+    try {
+      const rawPoId = extractBackendId(poId, purchaseOrders);
+      const rawVendorId = extractBackendId(poData.vendorId, contacts);
+
+      const items = (poData.items || []).map(item => {
+        const rawPrdId = extractBackendId(item.productId, products);
+        const prd = products.find(p => p.backendId === rawPrdId || p.id === item.productId);
+        return {
+          id: item.id || item.item_id || item.purchase_order_item_id,
+          product_id: rawPrdId,
+          quantity: Number(item.qty !== undefined ? item.qty : (item.quantity || 1)),
+          unit_price: Number(item.unitPrice !== undefined ? item.unitPrice : (prd?.costPrice || 0))
+        };
+      });
+
+      const res = await api.purchases.update(rawPoId, {
+        vendorId: rawVendorId,
+        orderDate: poData.date || poData.orderDate || new Date().toISOString().split('T')[0],
+        analyticAccountId: poData.analyticAccountId ? Number(poData.analyticAccountId) : null,
+        notes: poData.notes || '',
+        items
+      });
+
+      showToast(`Purchase Order updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Purchase order update error: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
   const receiveGoodsPO = async (poId) => {
     try {
       const rawPoId = extractBackendId(poId, purchaseOrders);
@@ -997,6 +1354,40 @@ export function AccountingProvider({ children }) {
       return res.data;
     } catch (err) {
       showToast(`Sales order error: ${err.message}`, 'error');
+      throw err;
+    }
+  };
+
+  const updateSalesOrder = async (soId, soData) => {
+    try {
+      const rawSoId = extractBackendId(soId, salesOrders);
+      const rawCustomerId = extractBackendId(soData.customerId, contacts);
+
+      const items = (soData.items || []).map(item => {
+        const rawPrdId = extractBackendId(item.productId, products);
+        const prd = products.find(p => p.backendId === rawPrdId || p.id === item.productId);
+        return {
+          id: item.id || item.item_id || item.sales_order_item_id,
+          product_id: rawPrdId,
+          quantity: Number(item.qty !== undefined ? item.qty : (item.quantity || 1)),
+          unit_price: Number(item.unitPrice !== undefined ? item.unitPrice : (prd?.salesPrice || 0)),
+          tax_percent: Number(item.taxPercent !== undefined ? item.taxPercent : 0)
+        };
+      });
+
+      const res = await api.sales.update(rawSoId, {
+        customerId: rawCustomerId,
+        orderDate: soData.date || soData.orderDate || new Date().toISOString().split('T')[0],
+        analyticAccountId: soData.analyticAccountId ? Number(soData.analyticAccountId) : null,
+        notes: soData.notes || '',
+        items
+      });
+
+      showToast(`Sales Order updated successfully!`, 'success');
+      await refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Sales order update error: ${err.message}`, 'error');
       throw err;
     }
   };
@@ -1341,26 +1732,49 @@ export function AccountingProvider({ children }) {
         id: String(b.id).startsWith('BDG') ? b.id : `BDG-2026-0${b.id}`,
         backendId: b.id,
         name: b.name,
-        periodStart: b.period_start,
-        periodEnd: b.period_end,
-        responsiblePerson: b.responsible_person || 'Admin',
-        plannedAmount: Number(b.planned_amount || 0),
-        actualSpent: Number(b.actual_amount || 0),
-        variance: Number(b.remaining_amount || 0),
-        usagePercent: Math.round(Number(b.utilization_percent || 0)),
-        isOverBudget: Boolean(b.is_over_budget)
+        status: b.status || 'draft',
+        period_start: b.period_start || b.periodStart || '—',
+        period_end: b.period_end || b.periodEnd || '—',
+        periodStart: b.period_start || b.periodStart || '—',
+        periodEnd: b.period_end || b.periodEnd || '—',
+        responsiblePerson: b.responsible_person || b.responsiblePerson || 'Admin',
+        planned_amount: Number(b.planned_amount || b.plannedAmount || 0),
+        plannedAmount: Number(b.planned_amount || b.plannedAmount || 0),
+        committedAmount: Number(b.planned_amount || b.plannedAmount || 0),
+        actual_amount: Number(b.actual_amount || b.actualSpent || 0),
+        actualSpent: Number(b.actual_amount || b.actualSpent || 0),
+        achieved_amount: Number(b.actual_amount || b.actualSpent || 0),
+        achievedAmount: Number(b.actual_amount || b.actualSpent || 0),
+        remaining_amount: Number(b.remaining_amount || (Number(b.planned_amount || 0) - Number(b.actual_amount || 0))),
+        variance: Number(b.remaining_amount || (Number(b.planned_amount || 0) - Number(b.actual_amount || 0))),
+        usagePercent: Math.round(Number(b.utilization_percent || (b.planned_amount > 0 ? (b.actual_amount / b.planned_amount) * 100 : 0))),
+        isOverBudget: Boolean(b.is_over_budget || (Number(b.actual_amount || 0) > Number(b.planned_amount || 0)))
       }));
     }
 
     return budgets.map(b => {
-      const planned = Number(b.plannedAmount || 0);
-      const actualSpent = Number(b.actualAmount || 0);
+      const planned = Number(b.plannedAmount || b.planned_amount || 0);
+      const actualSpent = Number(b.actualAmount || b.actual_amount || 0);
       const variance = planned - actualSpent;
       const usagePercent = planned > 0 ? Math.min(100, Math.round((actualSpent / planned) * 100)) : 0;
       return {
         ...b,
+        id: b.id,
+        name: b.name,
+        status: b.status || 'draft',
+        period_start: b.period_start || b.periodStart || b.startDate || '—',
+        period_end: b.period_end || b.periodEnd || b.endDate || '—',
+        periodStart: b.period_start || b.periodStart || b.startDate || '—',
+        periodEnd: b.period_end || b.periodEnd || b.endDate || '—',
+        responsiblePerson: b.responsible_person || b.responsiblePerson || 'Admin',
+        planned_amount: planned,
         plannedAmount: planned,
+        committedAmount: planned,
+        actual_amount: actualSpent,
         actualSpent,
+        achieved_amount: actualSpent,
+        achievedAmount: actualSpent,
+        remaining_amount: variance,
         variance,
         usagePercent,
         isOverBudget: actualSpent > planned
@@ -1482,25 +1896,39 @@ export function AccountingProvider({ children }) {
     // Actions
     formatCurrency,
     addContact,
+    updateContact,
     archiveContact,
     addProduct,
+    updateProduct,
     adjustProductStock,
     addChartOfAccount,
+    updateChartOfAccount,
     addJournal,
+    updateJournal,
     addAnalyticAccount,
+    updateAnalyticAccount,
     addBudget,
+    updateBudget,
     confirmBudget,
     cancelBudget,
     reviseBudget,
     getBudgetTransactions,
     createPurchaseOrder,
+    updatePurchaseOrder,
     receiveGoodsPO,
     convertPOToVendorBill,
     createSalesOrder,
+    updateSalesOrder,
     deliverGoodsSO,
     convertSOToCustomerInvoice,
     recordPayment,
     createManualJournalEntry,
+
+    // Draft Persistence
+    getDraftKey,
+    saveDraft,
+    getDraft,
+    clearDraft,
 
     // Aggregations
     getAccountLedger,

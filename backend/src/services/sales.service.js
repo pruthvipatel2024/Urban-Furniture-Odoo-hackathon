@@ -7,7 +7,7 @@ class SalesService {
   /**
    * Create Sales Order with server-calculated line totals
    */
-  static async createSalesOrder({ customerId, orderDate, notes, items, userId = null }) {
+  static async createSalesOrder({ customerId, orderDate, notes, items, analyticAccountId = null, userId = null }) {
     if (!items || items.length === 0) {
       throw new Error('A sales order must contain at least one product item.');
     }
@@ -25,18 +25,19 @@ class SalesService {
       // Validate items & fetch products
       const lineItems = [];
       for (const item of items) {
-        const product = await Product.findByPk(item.product_id, { transaction: t });
+        const rawProductId = item.productId || item.product_id;
+        const product = await Product.findByPk(rawProductId, { transaction: t });
         if (!product) {
-          throw new Error(`Product with ID ${item.product_id} not found.`);
+          throw new Error(`Product with ID ${rawProductId} not found.`);
         }
 
-        const qty = Number(item.quantity);
+        const qty = Number(item.quantity !== undefined ? item.quantity : (item.qty !== undefined ? item.qty : 1));
         if (qty <= 0) {
           throw new Error(`Quantity for "${product.name}" must be greater than 0.`);
         }
 
-        const unitPrice = item.unit_price !== undefined ? Number(item.unit_price) : Number(product.sales_price);
-        const taxPercent = item.tax_percent !== undefined ? Number(item.tax_percent) : 0;
+        const unitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : (item.unit_price !== undefined ? Number(item.unit_price) : Number(product.sales_price));
+        const taxPercent = item.taxPercent !== undefined ? Number(item.taxPercent) : (item.tax_percent !== undefined ? Number(item.tax_percent) : 0);
 
         // Backend authoritative calculation: Qty * UnitPrice * (1 + Tax / 100)
         const subtotal = multiply(qty, unitPrice);
@@ -58,7 +59,7 @@ class SalesService {
         status: 'draft',
         notes,
         created_by: userId,
-        analytic_account_id: typeof analyticAccountId !== 'undefined' ? analyticAccountId : null,
+        analytic_account_id: analyticAccountId || null,
       }, { transaction: t });
 
       // Generate sequence number S00001
@@ -73,6 +74,177 @@ class SalesService {
       await SalesOrderItem.bulkCreate(itemsWithOrderId, { transaction: t });
 
       return SalesOrder.findByPk(salesOrder.id, {
+        include: [
+          { model: Contact, as: 'customer' },
+          { model: SalesOrderItem, as: 'items', include: [{ model: Product, as: 'product' }] },
+        ],
+        transaction: t,
+      });
+    });
+  }
+
+  /**
+   * Update Sales Order with child-line reconciliation & foreign child rejection
+   */
+  static async updateSalesOrder(salesOrderId, { customerId, customer_id, orderDate, order_date, notes, items, analyticAccountId, analytic_account_id }) {
+    return sequelize.transaction(async (t) => {
+      const order = await SalesOrder.findByPk(salesOrderId, {
+        include: [{ model: SalesOrderItem, as: 'items' }],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!order) {
+        const error = new Error(`Sales Order #${salesOrderId} not found.`);
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (order.status !== 'draft') {
+        const error = new Error(`Cannot edit Sales Order #${salesOrderId} because current status is "${order.status}". Only draft orders can be edited.`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const effectiveCustomerId = customerId !== undefined ? customerId : customer_id;
+      if (effectiveCustomerId !== undefined && effectiveCustomerId !== order.customer_id) {
+        const customer = await Contact.findByPk(effectiveCustomerId, { transaction: t });
+        if (!customer) {
+          const error = new Error(`Customer with ID ${effectiveCustomerId} not found.`);
+          error.statusCode = 400;
+          throw error;
+        }
+        if (customer.type !== 'customer' && customer.type !== 'both') {
+          const error = new Error(`Contact "${customer.name}" is not registered as a Customer.`);
+          error.statusCode = 400;
+          throw error;
+        }
+        order.customer_id = effectiveCustomerId;
+      }
+
+      const effectiveOrderDate = orderDate !== undefined ? orderDate : order_date;
+      if (effectiveOrderDate !== undefined) {
+        order.order_date = effectiveOrderDate;
+      }
+
+      if (notes !== undefined) {
+        order.notes = notes;
+      }
+
+      const effectiveAnalytic = analyticAccountId !== undefined ? analyticAccountId : analytic_account_id;
+      if (effectiveAnalytic !== undefined) {
+        order.analytic_account_id = effectiveAnalytic || null;
+      }
+
+      await order.save({ transaction: t });
+
+      // Child-line reconciliation if items provided
+      if (items !== undefined) {
+        if (!Array.isArray(items) || items.length === 0) {
+          const error = new Error('A sales order must contain at least one product item.');
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const existingItems = order.items || [];
+        const existingItemMap = new Map(existingItems.map(item => [item.id, item]));
+        const updatedItemIds = new Set();
+
+        for (const rawItem of items) {
+          const lineId = rawItem.id || rawItem.item_id || rawItem.sales_order_item_id;
+          const productId = rawItem.productId !== undefined ? rawItem.productId : rawItem.product_id;
+          const quantity = rawItem.quantity !== undefined ? rawItem.quantity : rawItem.qty;
+          const unitPriceRaw = rawItem.unitPrice !== undefined ? rawItem.unitPrice : rawItem.unit_price;
+          const taxPercentRaw = rawItem.taxPercent !== undefined ? rawItem.taxPercent : rawItem.tax_percent;
+
+          if (lineId) {
+            // Verify ownership: must belong to this sales order
+            if (!existingItemMap.has(Number(lineId))) {
+              const error = new Error(`Sales Order Item #${lineId} does not belong to Sales Order #${salesOrderId}.`);
+              error.statusCode = 400;
+              throw error;
+            }
+
+            const existingLine = existingItemMap.get(Number(lineId));
+            const targetProductId = productId !== undefined ? productId : existingLine.product_id;
+            const product = await Product.findByPk(targetProductId, { transaction: t });
+            if (!product) {
+              const error = new Error(`Product with ID ${targetProductId} not found.`);
+              error.statusCode = 400;
+              throw error;
+            }
+
+            const qty = quantity !== undefined ? Number(quantity) : Number(existingLine.quantity);
+            if (qty <= 0) {
+              const error = new Error(`Quantity for "${product.name}" must be greater than 0.`);
+              error.statusCode = 400;
+              throw error;
+            }
+
+            const unitPrice = unitPriceRaw !== undefined ? Number(unitPriceRaw) : (existingLine.unit_price !== undefined ? Number(existingLine.unit_price) : Number(product.sales_price));
+            const taxPercent = taxPercentRaw !== undefined ? Number(taxPercentRaw) : (existingLine.tax_percent !== undefined ? Number(existingLine.tax_percent) : 0);
+
+            const subtotal = multiply(qty, unitPrice);
+            const taxAmount = multiply(subtotal, taxPercent / 100);
+            const lineTotal = round(add(subtotal, taxAmount));
+
+            await existingLine.update({
+              product_id: product.id,
+              quantity: qty,
+              unit_price: unitPrice,
+              tax_percent: taxPercent,
+              line_total: lineTotal,
+            }, { transaction: t });
+
+            updatedItemIds.add(Number(lineId));
+          } else {
+            // New line item without ID -> create
+            if (!productId) {
+              const error = new Error('Product ID is required for each order item.');
+              error.statusCode = 400;
+              throw error;
+            }
+            const product = await Product.findByPk(productId, { transaction: t });
+            if (!product) {
+              const error = new Error(`Product with ID ${productId} not found.`);
+              error.statusCode = 400;
+              throw error;
+            }
+
+            const qty = Number(quantity);
+            if (!qty || qty <= 0) {
+              const error = new Error(`Quantity for "${product.name}" must be greater than 0.`);
+              error.statusCode = 400;
+              throw error;
+            }
+
+            const unitPrice = unitPriceRaw !== undefined ? Number(unitPriceRaw) : Number(product.sales_price);
+            const taxPercent = taxPercentRaw !== undefined ? Number(taxPercentRaw) : 0;
+
+            const subtotal = multiply(qty, unitPrice);
+            const taxAmount = multiply(subtotal, taxPercent / 100);
+            const lineTotal = round(add(subtotal, taxAmount));
+
+            await SalesOrderItem.create({
+              sales_order_id: order.id,
+              product_id: product.id,
+              quantity: qty,
+              unit_price: unitPrice,
+              tax_percent: taxPercent,
+              line_total: lineTotal,
+            }, { transaction: t });
+          }
+        }
+
+        // Delete removed lines (existing items whose ID was not in the payload)
+        for (const existingLine of existingItems) {
+          if (!updatedItemIds.has(existingLine.id)) {
+            await existingLine.destroy({ transaction: t });
+          }
+        }
+      }
+
+      return SalesOrder.findByPk(order.id, {
         include: [
           { model: Contact, as: 'customer' },
           { model: SalesOrderItem, as: 'items', include: [{ model: Product, as: 'product' }] },

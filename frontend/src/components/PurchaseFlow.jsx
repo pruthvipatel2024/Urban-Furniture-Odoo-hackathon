@@ -13,7 +13,9 @@ import {
   Eye,
   ArrowLeft,
   Search,
-  ExternalLink
+  ExternalLink,
+  FileText,
+  Edit2
 } from 'lucide-react';
 
 export default function PurchaseFlow({
@@ -30,6 +32,7 @@ export default function PurchaseFlow({
     analyticAccounts,
     chartOfAccounts,
     createPurchaseOrder,
+    updatePurchaseOrder,
     confirmPurchaseOrder,
     receiveGoodsPO,
     convertPOToVendorBill,
@@ -38,13 +41,18 @@ export default function PurchaseFlow({
     setShowPaymentModal,
     formatCurrency,
     setActiveTab,
-    userRole
+    userRole,
+    getDraft,
+    saveDraft,
+    clearDraft
   } = useAccounting();
 
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab); // 'orders' | 'bills' | 'payments'
   const [selectedPOForDetail, setSelectedPOForDetail] = useState(null);
   const [selectedBillForDetail, setSelectedBillForDetail] = useState(null);
   const [isCreatingPO, setIsCreatingPO] = useState(false);
+  const [poMode, setPoMode] = useState({ mode: 'create', recordId: null });
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -55,12 +63,12 @@ export default function PurchaseFlow({
 
   useEffect(() => {
     if (showCreateModal) {
-      setIsCreatingPO(true);
+      handleOpenNewPO();
       if (setShowCreateModal) setShowCreateModal(false);
     }
   }, [showCreateModal]);
 
-  // PO Creation Form State
+  // PO Creation / Edit Form State
   const [vendorId, setVendorId] = useState('');
   const [analyticAccountId, setAnalyticAccountId] = useState('');
   const [poDate, setPoDate] = useState(new Date().toISOString().split('T')[0]);
@@ -76,6 +84,79 @@ export default function PurchaseFlow({
 
   // Vendor Payments filter
   const vendorPayments = payments.filter(p => p.type === 'Send' || p.payment_type === 'outbound' || p.amount > 0);
+
+  // Open Blank PO Form (New)
+  const handleOpenNewPO = () => {
+    setIsCreatingPO(true);
+    setSelectedPOForDetail(null);
+    setPoMode({ mode: 'create', recordId: null });
+    const draft = getDraft ? getDraft('purchase_order', 'create', 'new') : null;
+    if (draft) {
+      setVendorId(draft.vendorId || '');
+      setAnalyticAccountId(draft.analyticAccountId || '');
+      setPoDate(draft.poDate || new Date().toISOString().split('T')[0]);
+      setPaymentTerms(draft.paymentTerms || 'Immediate Payment');
+      setItems(draft.items && draft.items.length > 0 ? draft.items : [{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, total: 0 }]);
+      setHasRestoredDraft(true);
+    } else {
+      setVendorId('');
+      setAnalyticAccountId('');
+      setPoDate(new Date().toISOString().split('T')[0]);
+      setPaymentTerms('Immediate Payment');
+      setItems([{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, total: 0 }]);
+      setHasRestoredDraft(false);
+    }
+    setFormError('');
+  };
+
+  // Open Form for Editing Existing PO
+  const handleOpenEditPO = (po) => {
+    const rawId = po.backendId || po.id;
+    setSelectedPOForDetail(po);
+    setIsCreatingPO(true);
+    setPoMode({ mode: 'edit', recordId: rawId });
+
+    const draft = getDraft ? getDraft('purchase_order', 'edit', rawId) : null;
+    if (draft) {
+      setVendorId(draft.vendorId || '');
+      setAnalyticAccountId(draft.analyticAccountId || '');
+      setPoDate(draft.poDate || new Date().toISOString().split('T')[0]);
+      setPaymentTerms(draft.paymentTerms || 'Immediate Payment');
+      setItems(draft.items || []);
+      setHasRestoredDraft(true);
+    } else {
+      setVendorId(String(po.vendorId || po.vendor_id || ''));
+      setAnalyticAccountId(String(po.analyticAccountId || po.analytic_account_id || ''));
+      setPoDate(po.date || po.order_date || new Date().toISOString().split('T')[0]);
+      setPaymentTerms(po.paymentTerms || po.payment_terms || 'Immediate Payment');
+      const rawLines = po.items || po.lines || po.purchase_order_lines || [];
+      const mappedItems = rawLines.map(line => ({
+        id: line.id,
+        productId: String(line.productId || line.product_id || ''),
+        chartOfAccountId: String(line.chartOfAccountId || line.chart_of_account_id || ''),
+        analyticAccountId: String(line.analyticAccountId || line.analytic_account_id || ''),
+        qty: Number(line.qty || line.quantity || 1),
+        unitPrice: Number(line.unitPrice || line.unit_price || line.price || 0),
+        total: Number(line.total || 0)
+      }));
+      setItems(mappedItems.length > 0 ? mappedItems : [{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, total: 0 }]);
+      setHasRestoredDraft(false);
+    }
+    setFormError('');
+  };
+
+  // Auto-save draft
+  useEffect(() => {
+    if (isCreatingPO && saveDraft) {
+      saveDraft('purchase_order', poMode.mode, poMode.recordId || 'new', {
+        vendorId,
+        analyticAccountId,
+        poDate,
+        paymentTerms,
+        items
+      });
+    }
+  }, [isCreatingPO, poMode, vendorId, analyticAccountId, poDate, paymentTerms, items, saveDraft]);
 
   // Dynamic Line Item Handlers
   const handleItemChange = (index, field, value) => {
@@ -124,21 +205,35 @@ export default function PurchaseFlow({
 
     setIsSubmitting(true);
     try {
-      await createPurchaseOrder({
-        vendorId,
-        analyticAccountId: analyticAccountId || null,
-        date: poDate,
-        paymentTerms,
-        items: validItems
-      });
+      if (poMode.mode === 'edit' && poMode.recordId) {
+        await updatePurchaseOrder(poMode.recordId, {
+          vendorId,
+          analyticAccountId: analyticAccountId || null,
+          date: poDate,
+          paymentTerms,
+          items: validItems
+        });
+        if (clearDraft) clearDraft('purchase_order', 'edit', poMode.recordId);
+      } else {
+        await createPurchaseOrder({
+          vendorId,
+          analyticAccountId: analyticAccountId || null,
+          date: poDate,
+          paymentTerms,
+          items: validItems
+        });
+        if (clearDraft) clearDraft('purchase_order', 'create', 'new');
+      }
 
       setIsCreatingPO(false);
+      setSelectedPOForDetail(null);
       setVendorId('');
       setAnalyticAccountId('');
+      setHasRestoredDraft(false);
       setItems([{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, total: 0 }]);
       setActiveSubTab('orders');
     } catch (err) {
-      setFormError(err.message || 'Failed to create purchase order.');
+      setFormError(err.message || 'Failed to save purchase order.');
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +291,7 @@ export default function PurchaseFlow({
             <div className="shrink-0">
               {activeSubTab === 'orders' && (
                 <button
-                  onClick={() => setIsCreatingPO(true)}
+                  onClick={handleOpenNewPO}
                   className="flex items-center space-x-1.5 bg-[#0B2A4A] hover:bg-[#163B63] active:bg-[#0B2A4A] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
@@ -208,7 +303,7 @@ export default function PurchaseFlow({
                 <button
                   onClick={() => {
                     setActiveSubTab('orders');
-                    setIsCreatingPO(true);
+                    handleOpenNewPO();
                   }}
                   className="flex items-center space-x-1.5 bg-[#0B2A4A] hover:bg-[#163B63] active:bg-[#0B2A4A] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
                 >
@@ -252,9 +347,22 @@ export default function PurchaseFlow({
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h3 className="text-base font-bold text-[#0B2A4A]">
-                  {isCreatingPO ? 'New Purchase Order' : `Purchase Order — ${selectedPOForDetail.orderNumber || selectedPOForDetail.number}`}
-                </h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-[#0B2A4A]">
+                    {isCreatingPO
+                      ? (poMode.mode === 'edit' ? `Edit Purchase Order — ${selectedPOForDetail?.orderNumber || selectedPOForDetail?.number || '#' + poMode.recordId}` : 'New Purchase Order')
+                      : `Purchase Order — ${selectedPOForDetail.orderNumber || selectedPOForDetail.number}`}
+                  </h3>
+                  {isCreatingPO && (
+                    <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
+                      poMode.mode === 'edit'
+                        ? 'bg-[#EBF1F5] text-[#0B2A4A] border-[#D8E1E8]'
+                        : 'bg-[#EAF7F0] text-[#18794E] border-[#A3E6C0]'
+                    }`}>
+                      {poMode.mode === 'edit' ? `Edit Mode (#${poMode.recordId})` : 'Create Mode'}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-[#667482]">
                   {isCreatingPO ? 'Enter vendor and raw materials procurement lines' : `Issued to ${selectedPOForDetail.vendorName}`}
                 </p>
@@ -273,19 +381,28 @@ export default function PurchaseFlow({
                 Back
               </button>
 
-              {selectedPOForDetail && selectedPOForDetail.status === 'draft' && (
-                <button
-                  onClick={async () => {
-                    await confirmPurchaseOrder(selectedPOForDetail.id);
-                    setSelectedPOForDetail(prev => ({ ...prev, status: 'confirmed' }));
-                  }}
-                  className="px-4 py-1.5 rounded-xl bg-[#18794E] hover:bg-[#146340] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
-                >
-                  Confirm PO
-                </button>
+              {selectedPOForDetail && selectedPOForDetail.status === 'draft' && !isCreatingPO && (
+                <>
+                  <button
+                    onClick={() => handleOpenEditPO(selectedPOForDetail)}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] border border-[#D8E1E8] text-xs font-semibold transition-all shadow-xs cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit PO</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await confirmPurchaseOrder(selectedPOForDetail.id);
+                      setSelectedPOForDetail(prev => ({ ...prev, status: 'confirmed' }));
+                    }}
+                    className="px-4 py-1.5 rounded-xl bg-[#18794E] hover:bg-[#146340] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                  >
+                    Confirm PO
+                  </button>
+                </>
               )}
 
-              {selectedPOForDetail && (selectedPOForDetail.status === 'confirmed' || selectedPOForDetail.status === 'draft') && (
+              {selectedPOForDetail && (selectedPOForDetail.status === 'confirmed' || selectedPOForDetail.status === 'draft') && !isCreatingPO && (
                 <button
                   onClick={async () => {
                     await receiveGoodsPO(selectedPOForDetail.id);
@@ -298,7 +415,7 @@ export default function PurchaseFlow({
                 </button>
               )}
 
-              {selectedPOForDetail && (selectedPOForDetail.status === 'confirmed' || selectedPOForDetail.status === 'received') && (
+              {selectedPOForDetail && (selectedPOForDetail.status === 'confirmed' || selectedPOForDetail.status === 'received') && !isCreatingPO && (
                 <button
                   onClick={async () => {
                     await convertPOToVendorBill(selectedPOForDetail.id);
@@ -316,9 +433,9 @@ export default function PurchaseFlow({
                 <button
                   onClick={handleSubmitPO}
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Saving...' : 'Confirm'}
+                  {isSubmitting ? 'Saving...' : (poMode.mode === 'edit' ? 'Update Order' : 'Confirm')}
                 </button>
               )}
             </div>
@@ -328,6 +445,49 @@ export default function PurchaseFlow({
             <div className="p-3.5 bg-[#FDECEC] border border-[#B42318]/30 rounded-xl text-[#B42318] text-xs flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{formError}</span>
+            </div>
+          )}
+
+          {/* Restored Draft Banner */}
+          {hasRestoredDraft && isCreatingPO && (
+            <div className="p-3 bg-[#EEF4F8] border border-[#D8E1E8] rounded-xl text-xs text-[#0B2A4A] flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-[#0B2A4A]" />
+                <span>Unsaved draft restored from previous session.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (clearDraft) clearDraft('purchase_order', poMode.mode, poMode.recordId || 'new');
+                  setHasRestoredDraft(false);
+                  if (poMode.mode === 'edit' && selectedPOForDetail) {
+                    setVendorId(String(selectedPOForDetail.vendorId || selectedPOForDetail.vendor_id || ''));
+                    setAnalyticAccountId(String(selectedPOForDetail.analyticAccountId || selectedPOForDetail.analytic_account_id || ''));
+                    setPoDate(selectedPOForDetail.date || selectedPOForDetail.order_date || new Date().toISOString().split('T')[0]);
+                    setPaymentTerms(selectedPOForDetail.paymentTerms || selectedPOForDetail.payment_terms || 'Immediate Payment');
+                    const rawLines = selectedPOForDetail.items || selectedPOForDetail.lines || selectedPOForDetail.purchase_order_lines || [];
+                    const mappedItems = rawLines.map(line => ({
+                      id: line.id,
+                      productId: String(line.productId || line.product_id || ''),
+                      chartOfAccountId: String(line.chartOfAccountId || line.chart_of_account_id || ''),
+                      analyticAccountId: String(line.analyticAccountId || line.analytic_account_id || ''),
+                      qty: Number(line.qty || line.quantity || 1),
+                      unitPrice: Number(line.unitPrice || line.unit_price || line.price || 0),
+                      total: Number(line.total || 0)
+                    }));
+                    setItems(mappedItems.length > 0 ? mappedItems : [{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, total: 0 }]);
+                  } else {
+                    setVendorId('');
+                    setAnalyticAccountId('');
+                    setPoDate(new Date().toISOString().split('T')[0]);
+                    setPaymentTerms('Immediate Payment');
+                    setItems([{ productId: '', chartOfAccountId: '', analyticAccountId: '', qty: 1, unitPrice: 0, total: 0 }]);
+                  }
+                }}
+                className="text-xs text-[#B42318] hover:underline font-semibold cursor-pointer"
+              >
+                Discard Draft
+              </button>
             </div>
           )}
 
@@ -853,6 +1013,18 @@ export default function PurchaseFlow({
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          {po.status === 'draft' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditPO(po);
+                              }}
+                              className="p-1.5 text-[#0B2A4A] hover:text-[#163B63] rounded-lg hover:bg-[#EEF4F8] cursor-pointer mr-1"
+                              title="Edit Purchase Order"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                           {po.status === 'confirmed' && (
                             <button
                               onClick={async () => {

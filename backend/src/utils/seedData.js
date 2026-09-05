@@ -251,10 +251,31 @@ async function seedDatabase() {
         console.log('[Seed] Initial Capital & Liquidity Entry created (Dr Cash ₹500k, Dr Bank ₹1M, Cr Equity ₹1.5M).');
       }
     } else if (cashAcc && bankAcc && capitalAcc) {
-      // Ensure existing opening balance has adequate reserves
-      await JournalItem.update({ debit: 500000.0 }, { where: { journal_entry_id: existingCapitalEntry.id, account_id: cashAcc.id } });
-      await JournalItem.update({ debit: 1000000.0 }, { where: { journal_entry_id: existingCapitalEntry.id, account_id: bankAcc.id } });
-      await JournalItem.update({ credit: 1500000.0 }, { where: { journal_entry_id: existingCapitalEntry.id, account_id: capitalAcc.id } });
+      // Ensure existing opening balance has adequate reserves mapped to current accounts
+      await JournalItem.destroy({ where: { journal_entry_id: existingCapitalEntry.id } });
+      await JournalItem.bulkCreate([
+        {
+          journal_entry_id: existingCapitalEntry.id,
+          account_id: cashAcc.id,
+          debit: 500000.0,
+          credit: 0,
+          description: 'Opening Cash Reserve',
+        },
+        {
+          journal_entry_id: existingCapitalEntry.id,
+          account_id: bankAcc.id,
+          debit: 1000000.0,
+          credit: 0,
+          description: 'Opening Bank Balance (HDFC Bank)',
+        },
+        {
+          journal_entry_id: existingCapitalEntry.id,
+          account_id: capitalAcc.id,
+          debit: 0,
+          credit: 1500000.0,
+          description: 'Initial Equity Contribution',
+        },
+      ]);
     }
 
     // eslint-disable-next-line no-console

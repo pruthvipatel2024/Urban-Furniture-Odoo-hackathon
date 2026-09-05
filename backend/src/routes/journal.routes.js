@@ -8,6 +8,7 @@ router.use(authenticate, isAdminOrAccountant);
 
 router.get('/', JournalController.getJournals);
 router.post('/', JournalController.createJournal);
+router.put('/:id', JournalController.updateJournal);
 router.get('/entries', JournalController.getJournalEntries);
 router.post('/entries', JournalController.createManualEntry);
 

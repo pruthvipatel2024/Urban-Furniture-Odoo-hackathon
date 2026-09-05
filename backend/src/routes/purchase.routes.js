@@ -9,6 +9,7 @@ router.use(authenticate);
 router.get('/', PurchaseController.getPurchaseOrders);
 router.get('/:id', PurchaseController.getPurchaseOrderById);
 router.post('/', isAdminOrAccountant, PurchaseController.createPurchaseOrder);
+router.put('/:id', isAdminOrAccountant, PurchaseController.updatePurchaseOrder);
 router.post('/:id/confirm', isAdminOrAccountant, PurchaseController.confirmPurchaseOrder);
 router.post('/:id/cancel', isAdminOrAccountant, PurchaseController.cancelPurchaseOrder);
 

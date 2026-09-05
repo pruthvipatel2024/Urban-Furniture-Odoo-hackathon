@@ -9,6 +9,7 @@ router.use(authenticate);
 router.get('/', SalesController.getSalesOrders);
 router.get('/:id', SalesController.getSalesOrderById);
 router.post('/', SalesController.createSalesOrder);
+router.put('/:id', SalesController.updateSalesOrder);
 router.post('/:id/confirm', isAdminOrAccountant, SalesController.confirmSalesOrder);
 router.post('/:id/cancel', isAdminOrAccountant, SalesController.cancelSalesOrder);
 

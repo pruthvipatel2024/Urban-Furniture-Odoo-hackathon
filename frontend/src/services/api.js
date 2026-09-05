@@ -22,11 +22,16 @@ class ApiClient {
     const url = `${API_BASE_URL}/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     const token = ApiClient.getToken();
 
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
     const headers = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
       ...options.headers,
     };
+
+    if (!isFormData && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers.Authorization = `Bearer ${token}`;
@@ -71,16 +76,18 @@ class ApiClient {
   }
 
   static post(endpoint, body = {}) {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     return ApiClient.request(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
     });
   }
 
   static put(endpoint, body = {}) {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
     return ApiClient.request(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
     });
   }
 
@@ -172,6 +179,7 @@ export const api = {
   journals: {
     getAll: () => ApiClient.get('/journals'),
     create: (data) => ApiClient.post('/journals', data),
+    update: (id, data) => ApiClient.put(`/journals/${id}`, data),
     getEntries: (params) => ApiClient.get('/journals/entries', params),
     createManualEntry: (data) => ApiClient.post('/journals/entries', data),
   },
@@ -181,6 +189,7 @@ export const api = {
     getAll: (params) => ApiClient.get('/sales-orders', params),
     getById: (id) => ApiClient.get(`/sales-orders/${id}`),
     create: (data) => ApiClient.post('/sales-orders', data),
+    update: (id, data) => ApiClient.put(`/sales-orders/${id}`, data),
     confirm: (id) => ApiClient.post(`/sales-orders/${id}/confirm`),
     cancel: (id) => ApiClient.post(`/sales-orders/${id}/cancel`),
   },
@@ -196,6 +205,7 @@ export const api = {
     getAll: (params) => ApiClient.get('/purchase-orders', params),
     getById: (id) => ApiClient.get(`/purchase-orders/${id}`),
     create: (data) => ApiClient.post('/purchase-orders', data),
+    update: (id, data) => ApiClient.put(`/purchase-orders/${id}`, data),
     confirm: (id) => ApiClient.post(`/purchase-orders/${id}/confirm`),
     cancel: (id) => ApiClient.post(`/purchase-orders/${id}/cancel`),
   },
@@ -226,6 +236,7 @@ export const api = {
     delete: (id) => ApiClient.delete(`/budgets/${id}`),
     getAnalytics: () => ApiClient.get('/budgets/analytic-accounts'),
     createAnalytic: (data) => ApiClient.post('/budgets/analytic-accounts', data),
+    updateAnalytic: (id, data) => ApiClient.put(`/budgets/analytic-accounts/${id}`, data),
   },
 
   // Real-time Financial Reports

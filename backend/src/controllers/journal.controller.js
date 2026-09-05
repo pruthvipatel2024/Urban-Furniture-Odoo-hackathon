@@ -60,6 +60,48 @@ class JournalController {
   }
 
   /**
+   * PUT /api/journals/:id
+   */
+  static async updateJournal(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, type, default_account_id } = req.body;
+
+      const journal = await Journal.findByPk(id);
+      if (!journal) {
+        return ApiResponse.notFound(res, 'Journal not found');
+      }
+
+      if (type && !['sales', 'purchase', 'bank', 'cash'].includes(type)) {
+        return ApiResponse.badRequest(res, 'Type must be "sales", "purchase", "bank", or "cash".');
+      }
+
+      const updateData = {};
+      if (name !== undefined) updateData.name = name.trim();
+      if (type !== undefined) updateData.type = type;
+      if (default_account_id !== undefined) updateData.default_account_id = default_account_id || null;
+
+      await journal.update(updateData);
+
+      await logAudit({
+        req,
+        action: 'UPDATE_JOURNAL',
+        entity: 'Journal',
+        entityId: journal.id,
+        newValue: journal.toJSON(),
+      });
+
+      const response = await Journal.findByPk(journal.id, {
+        include: [{ model: ChartOfAccount, as: 'defaultAccount' }],
+      });
+
+      return ApiResponse.success(res, 'Journal updated successfully', response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/journals/entries (Stream all accounting journal entries)
    */
   static async getJournalEntries(req, res, next) {

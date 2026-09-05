@@ -119,6 +119,33 @@ class PurchaseController {
   }
 
   /**
+   * PUT /api/purchase-orders/:id
+   */
+  static async updatePurchaseOrder(req, res, next) {
+    try {
+      const order = await PurchaseService.updatePurchaseOrder(req.params.id, req.body);
+
+      await logAudit({
+        req,
+        action: 'UPDATE_PURCHASE_ORDER',
+        entity: 'PurchaseOrder',
+        entityId: order.id,
+        newValue: { vendorId: order.vendor_id, itemsCount: order.items?.length },
+      });
+
+      return ApiResponse.success(res, `Purchase Order #${order.id} updated successfully`, order);
+    } catch (err) {
+      if (err.statusCode === 400 || err.message.includes('does not belong') || err.message.includes('not registered') || err.message.includes('Quantity for') || err.message.includes('must contain')) {
+        return ApiResponse.badRequest(res, err.message);
+      }
+      if (err.statusCode === 404 || err.message.includes('not found')) {
+        return ApiResponse.notFound(res, err.message);
+      }
+      next(err);
+    }
+  }
+
+  /**
    * POST /api/purchase-orders/:id/confirm
    */
   static async confirmPurchaseOrder(req, res, next) {

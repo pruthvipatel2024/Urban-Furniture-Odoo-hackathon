@@ -127,9 +127,9 @@ export default function Dashboard({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. TOP BUSINESS SUMMARY CARDS (Sales, Purchase, Budget, Account)          */}
+      {/* 2. TOP BUSINESS SUMMARY CARDS (Sales, Purchase, Budget)                   */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
         {/* 1. SALES SUMMARY CARD */}
         <div className="bg-white p-6 sm:p-7 rounded-2xl border border-[#E3E7EA] shadow-xs hover:border-[#0B2A4A]/30 transition-all flex flex-col justify-between space-y-5 min-h-[250px]">
           <div className="space-y-4">
@@ -311,68 +311,6 @@ export default function Dashboard({
             <button onClick={() => setActiveTab('budgets')} className="hover:text-[#C98232] cursor-pointer">Budget</button>
             <span className="text-[#D8E1E8]">•</span>
             <button onClick={() => setActiveTab('reports-budget')} className="hover:text-[#C98232] cursor-pointer">Reports</button>
-          </div>
-        </div>
-
-        {/* 4. ACCOUNTS & JOURNALS SUMMARY CARD */}
-        <div className="bg-white p-6 sm:p-7 rounded-2xl border border-[#E3E7EA] shadow-xs hover:border-[#0B2A4A]/30 transition-all flex flex-col justify-between space-y-5 min-h-[250px]">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8] flex items-center justify-center shrink-0">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#0B2A4A] font-display leading-tight">Account</h3>
-                  <p className="text-xs text-[#8A96A3]">Liquidity & Ledger</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveTab('journal-entries')}
-                className="text-xs font-bold bg-[#0B2A4A] hover:bg-[#163B63] text-white px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
-              >
-                + New
-              </button>
-            </div>
-
-            {/* 3 Metric Blocks (Bank, Cash, Posted Entries) */}
-            <div className="space-y-2.5">
-              <div
-                onClick={() => setActiveTab('master-coa')}
-                className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-2.5 px-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors flex items-center justify-between"
-              >
-                <span className="text-xs font-bold text-[#0B2A4A] uppercase tracking-wider">Bank A/c</span>
-                <span className="text-sm font-bold font-mono text-[#17212B]">
-                  {formatCurrency(liquidBalances.bank)}
-                </span>
-              </div>
-              <div
-                onClick={() => setActiveTab('master-coa')}
-                className="bg-[#FAFAF8] hover:bg-[#F8F0E6] p-2.5 px-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors flex items-center justify-between"
-              >
-                <span className="text-xs font-bold text-[#C98232] uppercase tracking-wider">Cash A/c</span>
-                <span className="text-sm font-bold font-mono text-[#17212B]">
-                  {formatCurrency(liquidBalances.cash)}
-                </span>
-              </div>
-              <div
-                onClick={() => setActiveTab('journal-entries')}
-                className="bg-[#FAFAF8] hover:bg-[#EEF4F8] p-2.5 px-3 rounded-xl border border-[#E3E7EA] cursor-pointer transition-colors flex items-center justify-between"
-              >
-                <span className="text-xs font-bold text-[#667482] uppercase tracking-wider">Posted Entries</span>
-                <span className="text-sm font-bold font-sans text-[#0B2A4A] font-mono">
-                  {postedEntriesCount}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-[#E3E7EA] flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold text-[#0B2A4A]">
-            <button onClick={() => setActiveTab('master-coa')} className="hover:text-[#C98232] cursor-pointer">Chart of Account</button>
-            <span className="text-[#D8E1E8]">•</span>
-            <button onClick={() => setActiveTab('master-journals')} className="hover:text-[#C98232] cursor-pointer">Journals</button>
-            <span className="text-[#D8E1E8]">•</span>
-            <button onClick={() => setActiveTab('journal-entries')} className="hover:text-[#C98232] cursor-pointer">Entries</button>
           </div>
         </div>
       </div>

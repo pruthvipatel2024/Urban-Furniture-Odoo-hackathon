@@ -3,13 +3,14 @@ const router = express.Router();
 const ContactController = require('../controllers/contact.controller');
 const { authenticate } = require('../middleware/auth.middleware');
 const { isAdmin, isAdminOrAccountant } = require('../middleware/role.middleware');
+const { handleContactUpload } = require('../middleware/upload.middleware');
 
 router.use(authenticate);
 
 router.get('/', ContactController.getContacts);
-router.post('/', isAdminOrAccountant, ContactController.createContact);
+router.post('/', isAdminOrAccountant, handleContactUpload, ContactController.createContact);
 router.get('/:id', ContactController.getContactById);
-router.put('/:id', isAdminOrAccountant, ContactController.updateContact);
+router.put('/:id', isAdminOrAccountant, handleContactUpload, ContactController.updateContact);
 router.delete('/:id', isAdmin, ContactController.archiveContact);
 router.get('/:id/ledger-history', ContactController.getContactLedgerHistory);
 

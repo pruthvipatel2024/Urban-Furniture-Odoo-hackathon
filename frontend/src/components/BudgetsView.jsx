@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
   PieChart as PieChartIcon,
@@ -29,12 +29,16 @@ export default function BudgetsView() {
     analyticAccounts,
     contacts,
     addBudget,
+    updateBudget,
     confirmBudget,
     cancelBudget,
     reviseBudget,
     getBudgetTransactions,
     formatCurrency,
-    userRole
+    userRole,
+    getDraft,
+    saveDraft,
+    clearDraft,
   } = useAccounting();
 
   // Navigation & View Mode: 'list' | 'kanban' | 'chart' | 'form'
@@ -43,8 +47,12 @@ export default function BudgetsView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
-  // Form State for Create/Edit
+  // Explicit CRUD Mode: { mode: 'create' | 'edit', recordId: null }
+  const [budgetMode, setBudgetMode] = useState({ mode: 'create', recordId: null });
   const [isNewBudget, setIsNewBudget] = useState(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+
+  // Form State for Create/Edit
   const [formState, setFormState] = useState({
     name: '',
     periodStart: new Date().toISOString().split('T')[0],
@@ -67,6 +75,13 @@ export default function BudgetsView() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Draft auto-save
+  useEffect(() => {
+    if (viewMode === 'form' && saveDraft) {
+      saveDraft('budget', budgetMode.mode, budgetMode.recordId || 'new', formState);
+    }
+  }, [formState, viewMode, budgetMode]);
+
   // Sync selected analytic account type
   const handleAnalyticChange = (analyticId) => {
     const analytic = analyticAccounts.find(a => String(a.id) === String(analyticId) || String(a.backendId) === String(analyticId));
@@ -81,7 +96,9 @@ export default function BudgetsView() {
   const handleOpenNewForm = () => {
     setIsNewBudget(true);
     setSelectedBudget(null);
-    setFormState({
+    setBudgetMode({ mode: 'create', recordId: null });
+
+    const defaultData = {
       name: '',
       periodStart: new Date().toISOString().split('T')[0],
       periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -89,16 +106,29 @@ export default function BudgetsView() {
       plannedAmount: '',
       analyticAccountId: analyticAccounts[0]?.id || (analyticAccounts[0]?.backendId ? String(analyticAccounts[0].backendId) : ''),
       type: analyticAccounts[0]?.type ? analyticAccounts[0].type.toLowerCase() : 'expense'
-    });
+    };
+
+    const draft = getDraft ? getDraft('budget', 'create', 'new') : null;
+    if (draft && draft.name) {
+      setFormState({ ...defaultData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setFormState(defaultData);
+      setHasRestoredDraft(false);
+    }
+
     setErrorMessage('');
     setViewMode('form');
   };
 
   // Open Form for Existing Record
   const handleOpenExistingBudget = (budget) => {
+    const rawId = budget.backendId || budget.id;
     setSelectedBudget(budget);
     setIsNewBudget(false);
-    setFormState({
+    setBudgetMode({ mode: 'edit', recordId: rawId });
+
+    const initialData = {
       name: budget.name,
       periodStart: budget.periodStart || budget.period_start,
       periodEnd: budget.periodEnd || budget.period_end,
@@ -106,14 +136,24 @@ export default function BudgetsView() {
       plannedAmount: String(budget.committedAmount || budget.plannedAmount || 0),
       analyticAccountId: String(budget.analyticAccountId || budget.analytic_account_id || ''),
       type: budget.type || 'expense'
-    });
+    };
+
+    const draft = getDraft ? getDraft('budget', 'edit', rawId) : null;
+    if (draft) {
+      setFormState({ ...initialData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setFormState(initialData);
+      setHasRestoredDraft(false);
+    }
+
     setErrorMessage('');
     setViewMode('form');
   };
 
-  // Submit New Budget (creates in draft state)
+  // Submit Budget (Create vs Edit)
   const handleSaveBudget = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setErrorMessage('');
     if (!formState.name.trim() || !formState.plannedAmount) {
       setErrorMessage('Please enter budget name and committed amount.');
@@ -122,17 +162,32 @@ export default function BudgetsView() {
 
     setIsSubmitting(true);
     try {
-      const created = await addBudget({
-        name: formState.name.trim(),
-        periodStart: formState.periodStart,
-        periodEnd: formState.periodEnd,
-        responsiblePerson: formState.responsiblePerson,
-        plannedAmount: Number(formState.plannedAmount),
-        analyticAccountId: formState.analyticAccountId,
-        status: 'draft'
-      });
+      if (budgetMode.mode === 'edit' && budgetMode.recordId) {
+        const updated = await updateBudget(budgetMode.recordId, {
+          name: formState.name.trim(),
+          periodStart: formState.periodStart,
+          periodEnd: formState.periodEnd,
+          responsiblePerson: formState.responsiblePerson,
+          plannedAmount: Number(formState.plannedAmount),
+          analyticAccountId: formState.analyticAccountId,
+        });
+        if (clearDraft) clearDraft('budget', 'edit', budgetMode.recordId);
+        setSelectedBudget(updated);
+      } else {
+        const created = await addBudget({
+          name: formState.name.trim(),
+          periodStart: formState.periodStart,
+          periodEnd: formState.periodEnd,
+          responsiblePerson: formState.responsiblePerson,
+          plannedAmount: Number(formState.plannedAmount),
+          analyticAccountId: formState.analyticAccountId,
+          status: 'draft'
+        });
+        if (clearDraft) clearDraft('budget', 'create', 'new');
+        setSelectedBudget(created);
+      }
       setIsNewBudget(false);
-      setSelectedBudget(created);
+      setHasRestoredDraft(false);
       setViewMode('list');
     } catch (err) {
       setErrorMessage(err.message || 'Failed to save budget.');
@@ -357,14 +412,22 @@ export default function BudgetsView() {
           {/* Form Header Action Bar & Status */}
           <div className="p-4 border-b border-[#E3E7EA] bg-[#FAFAF8] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
+              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
+                budgetMode.mode === 'edit'
+                  ? 'bg-[#EBF1F5] text-[#0B2A4A] border-[#D8E1E8]'
+                  : 'bg-[#EAF7F0] text-[#18794E] border-[#A3E6C0]'
+              }`}>
+                {budgetMode.mode === 'edit' ? `Edit Mode (#${budgetMode.recordId})` : 'Create Mode'}
+              </span>
+
               {isNewBudget ? (
                 <button
                   type="button"
                   onClick={handleSaveBudget}
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 bg-[#0B2A4A] hover:bg-[#163B63] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 bg-[#0B2A4A] hover:bg-[#163B63] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50"
                 >
-                  Save Draft
+                  {isSubmitting ? 'Saving...' : 'Save Draft'}
                 </button>
               ) : (
                 <>
@@ -373,17 +436,25 @@ export default function BudgetsView() {
                     <>
                       <button
                         type="button"
+                        onClick={handleSaveBudget}
+                        disabled={isSubmitting}
+                        className="px-4 py-1.5 bg-[#18794E] hover:bg-[#156943] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50"
+                      >
+                        {isSubmitting ? 'Updating...' : 'Update Budget'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={handleConfirmBudget}
                         disabled={isSubmitting}
-                        className="px-4 py-1.5 bg-[#0B2A4A] hover:bg-[#163B63] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                        className="px-4 py-1.5 bg-[#0B2A4A] hover:bg-[#163B63] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50"
                       >
-                        Confirm
+                        {isSubmitting ? 'Confirming...' : 'Confirm'}
                       </button>
                       <button
                         type="button"
                         onClick={handleCancelBudget}
                         disabled={isSubmitting}
-                        className="px-3.5 py-1.5 bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] font-semibold text-xs rounded-xl cursor-pointer border border-[#D8E1E8]"
+                        className="px-3.5 py-1.5 bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] font-semibold text-xs rounded-xl cursor-pointer border border-[#D8E1E8] disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -398,7 +469,8 @@ export default function BudgetsView() {
                           setRevisedAmount(String(selectedBudget.committedAmount || selectedBudget.plannedAmount || ''));
                           setShowReviseModal(true);
                         }}
-                        className="px-4 py-1.5 bg-[#F8F0E6] hover:bg-[#F3E5D4] text-[#C98232] font-bold text-xs rounded-xl shadow-xs border border-[#E5B875]/60 cursor-pointer flex items-center space-x-1.5"
+                        disabled={isSubmitting}
+                        className="px-4 py-1.5 bg-[#F8F0E6] hover:bg-[#F3E5D4] text-[#C98232] font-bold text-xs rounded-xl shadow-xs border border-[#E5B875]/60 cursor-pointer flex items-center space-x-1.5 disabled:opacity-50"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Revise</span>
@@ -407,7 +479,7 @@ export default function BudgetsView() {
                         type="button"
                         onClick={handleCancelBudget}
                         disabled={isSubmitting}
-                        className="px-3.5 py-1.5 bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] font-semibold text-xs rounded-xl cursor-pointer border border-[#D8E1E8]"
+                        className="px-3.5 py-1.5 bg-[#EEF4F8] hover:bg-[#E2ECF2] text-[#0B2A4A] font-semibold text-xs rounded-xl cursor-pointer border border-[#D8E1E8] disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -446,6 +518,47 @@ export default function BudgetsView() {
 
           {/* Form Content */}
           <form onSubmit={handleSaveBudget} className="p-6 space-y-6">
+            {/* Restored Draft Banner */}
+            {hasRestoredDraft && (
+              <div className="p-3 bg-[#EEF4F8] border border-[#D8E1E8] rounded-xl text-xs text-[#0B2A4A] flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-[#0B2A4A]" />
+                  <span>Unsaved draft restored from previous session.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (clearDraft) clearDraft('budget', budgetMode.mode, budgetMode.recordId || 'new');
+                    setHasRestoredDraft(false);
+                    if (budgetMode.mode === 'edit' && selectedBudget) {
+                      setFormState({
+                        name: selectedBudget.name,
+                        periodStart: selectedBudget.periodStart || selectedBudget.period_start,
+                        periodEnd: selectedBudget.periodEnd || selectedBudget.period_end,
+                        responsiblePerson: selectedBudget.responsiblePerson || selectedBudget.responsible_person || 'Admin',
+                        plannedAmount: String(selectedBudget.committedAmount || selectedBudget.plannedAmount || 0),
+                        analyticAccountId: String(selectedBudget.analyticAccountId || selectedBudget.analytic_account_id || ''),
+                        type: selectedBudget.type || 'expense'
+                      });
+                    } else {
+                      setFormState({
+                        name: '',
+                        periodStart: new Date().toISOString().split('T')[0],
+                        periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        responsiblePerson: contacts[0]?.name || 'Admin',
+                        plannedAmount: '',
+                        analyticAccountId: analyticAccounts[0]?.id || (analyticAccounts[0]?.backendId ? String(analyticAccounts[0].backendId) : ''),
+                        type: analyticAccounts[0]?.type ? analyticAccounts[0].type.toLowerCase() : 'expense'
+                      });
+                    }
+                  }}
+                  className="text-xs text-[#B42318] hover:underline font-semibold cursor-pointer"
+                >
+                  Discard Draft
+                </button>
+              </div>
+            )}
+
             {/* Revision Relationship Links if present */}
             {selectedBudget?.revisionOfId && (
               <div className="p-3 bg-[#F8F0E6] border border-[#E5B875]/50 rounded-xl flex items-center justify-between text-xs text-[#C98232]">

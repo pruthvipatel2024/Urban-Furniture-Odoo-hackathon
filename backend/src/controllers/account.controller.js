@@ -98,7 +98,8 @@ class AccountController {
    */
   static async createAccount(req, res, next) {
     try {
-      const { account_name, account_type } = req.body;
+      const account_name = req.body.account_name || req.body.name;
+      const account_type = (req.body.account_type || req.body.type || '').trim().toLowerCase();
 
       if (!account_name || !account_type) {
         return ApiResponse.badRequest(res, 'Account name and type (asset, liability, expense, income, capital) are required.');
@@ -147,11 +148,17 @@ class AccountController {
       }
 
       const oldVal = account.toJSON();
-      const { account_name, account_type } = req.body;
+      const account_name = req.body.account_name || req.body.name;
+      const account_type = req.body.account_type || req.body.type;
 
-      if (account_name) account.account_name = account_name.trim();
-      if (account_type && ['asset', 'liability', 'expense', 'income', 'capital'].includes(account_type)) {
-        account.account_type = account_type;
+      if (account_name && typeof account_name === 'string' && account_name.trim()) {
+        account.account_name = account_name.trim();
+      }
+      if (account_type && typeof account_type === 'string' && account_type.trim()) {
+        const normType = account_type.trim().toLowerCase();
+        if (['asset', 'liability', 'expense', 'income', 'capital'].includes(normType)) {
+          account.account_type = normType;
+        }
       }
 
       await account.save();

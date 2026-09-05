@@ -1,14 +1,35 @@
 import React from 'react';
 import { Printer, X, CheckCircle2, Building2, ShieldCheck, Phone } from 'lucide-react';
 
-export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) {
-  if (!invoice) return null;
+const defaultFormatCurrency = (val) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+  }).format(val || 0);
+};
 
-  const subtotal = invoice.subtotal || invoice.totalAmount || 0;
-  const tax = invoice.tax || 0;
-  const grandTotal = invoice.totalAmount || 0;
-  const paidAmount = invoice.paidAmount || 0;
-  const balance = invoice.balance ?? (grandTotal - paidAmount);
+export default function StoreInvoiceModal({ invoice, onClose, formatCurrency = defaultFormatCurrency }) {
+  if (!invoice) return null;
+  const fmt = formatCurrency || defaultFormatCurrency;
+
+  const grandTotal = Number(invoice.totalAmount || invoice.total || 0);
+  const subtotal = Number(
+    invoice.subtotal !== undefined 
+      ? invoice.subtotal 
+      : (invoice.items && invoice.items.length > 0 
+          ? invoice.items.reduce((s, i) => s + (Number(i.qty || i.quantity || 1) * Number(i.unitPrice || i.price || 0)), 0)
+          : (grandTotal > 0 ? (grandTotal / 1.18) : 0))
+  );
+  const tax = Number(
+    invoice.taxAmount !== undefined 
+      ? invoice.taxAmount 
+      : (invoice.tax !== undefined 
+          ? invoice.tax 
+          : Math.max(0, grandTotal - subtotal))
+  );
+  const paidAmount = Number(invoice.paidAmount || invoice.amountPaid || 0);
+  const balance = Number(invoice.balance !== undefined ? invoice.balance : Math.max(0, grandTotal - paidAmount));
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0B2A4A]/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -105,45 +126,56 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
         <div className="border border-[#E3E7EA] rounded-xl overflow-hidden shadow-xs bg-white">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#0B2A4A] text-white font-bold uppercase tracking-wider">
+              <tr className="bg-[#0B2A4A] text-white font-bold uppercase tracking-wider text-[11px]">
                 <th className="py-3 px-4 border-r border-[#163B63]">Product Detail</th>
-                <th className="py-3 px-4 text-center border-r border-[#163B63] w-24">Qty</th>
-                <th className="py-3 px-4 text-right w-44">Price (₹)</th>
+                <th className="py-3 px-3 text-center border-r border-[#163B63] w-16">Qty</th>
+                <th className="py-3 px-3 text-right border-r border-[#163B63] w-24">Unit Price</th>
+                <th className="py-3 px-3 text-center border-r border-[#163B63] w-20">GST %</th>
+                <th className="py-3 px-4 text-right w-32">Total (₹)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E3E7EA]">
               {invoice.items && invoice.items.length > 0 ? (
-                invoice.items.map((item, index) => (
-                  <tr key={index} className="hover:bg-[#FAFAF8] transition-colors">
-                    <td className="py-3.5 px-4 border-r border-[#E3E7EA]">
-                      <p className="font-bold text-[#17212B]">{item.productName}</p>
-                      {item.description && (
-                        <p className="text-[11px] text-[#8A96A3] mt-0.5">{item.description}</p>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-[#17212B] border-r border-[#E3E7EA]">
-                      {item.qty}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-[#17212B]">
-                      {formatCurrency(item.total || (item.qty * item.unitPrice))}
-                    </td>
-                  </tr>
-                ))
+                invoice.items.map((item, index) => {
+                  const qty = Number(item.qty || item.quantity || 1);
+                  const unitPrice = Number(item.unitPrice || item.price || 0);
+                  const taxPercent = Number(item.taxPercent !== undefined ? item.taxPercent : (item.tax_percent !== undefined ? item.tax_percent : 18));
+                  const lineTotal = Number(item.total || item.lineTotal || (qty * unitPrice * (1 + taxPercent / 100)));
+                  return (
+                    <tr key={index} className="hover:bg-[#FAFAF8] transition-colors">
+                      <td className="py-3.5 px-4 border-r border-[#E3E7EA]">
+                        <p className="font-bold text-[#17212B]">{item.productName || item.name}</p>
+                        {item.description && (
+                          <p className="text-[11px] text-[#8A96A3] mt-0.5">{item.description}</p>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-3 text-center font-mono font-bold text-[#17212B] border-r border-[#E3E7EA]">
+                        {qty}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono text-[#667482] border-r border-[#E3E7EA]">
+                        {formatCurrency(unitPrice)}
+                      </td>
+                      <td className="py-3.5 px-3 text-center font-mono font-bold text-[#18794E] border-r border-[#E3E7EA]">
+                        {taxPercent}%
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-[#0B2A4A]">
+                        {formatCurrency(lineTotal)}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="3" className="py-4 text-center text-[#8A96A3]">
+                  <td colSpan="5" className="py-4 text-center text-[#8A96A3]">
                     No products listed.
                   </td>
                 </tr>
               )}
 
               {/* TWO BLANK LINES UNDER PURCHASED PRODUCTS */}
-              <tr className="h-8">
+              <tr className="h-6">
                 <td className="border-r border-[#E3E7EA]">&nbsp;</td>
                 <td className="border-r border-[#E3E7EA]">&nbsp;</td>
-                <td>&nbsp;</td>
-              </tr>
-              <tr className="h-8">
                 <td className="border-r border-[#E3E7EA]">&nbsp;</td>
                 <td className="border-r border-[#E3E7EA]">&nbsp;</td>
                 <td>&nbsp;</td>
@@ -153,28 +185,26 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
             {/* CONNECTED SUMMARY FOOTER */}
             <tfoot className="border-t-2 border-[#0B2A4A] bg-[#FAFAF8] divide-y divide-[#E3E7EA] text-xs">
               <tr>
-                <td colSpan="2" className="py-2.5 px-4 text-right font-bold uppercase text-[11px] text-[#667482] border-r border-[#E3E7EA]">
-                  Sum (Subtotal):
+                <td colSpan="4" className="py-2.5 px-4 text-right font-bold uppercase text-[11px] text-[#667482] border-r border-[#E3E7EA]">
+                  Taxable Base (Subtotal):
                 </td>
                 <td className="py-2.5 px-4 text-right font-mono font-bold text-[#17212B]">
                   {formatCurrency(subtotal)}
                 </td>
               </tr>
 
-              {tax > 0 && (
-                <tr>
-                  <td colSpan="2" className="py-2.5 px-4 text-right font-bold uppercase text-[11px] text-[#667482] border-r border-[#E3E7EA]">
-                    GST (18%):
-                  </td>
-                  <td className="py-2.5 px-4 text-right font-mono font-bold text-[#17212B]">
-                    {formatCurrency(tax)}
-                  </td>
-                </tr>
-              )}
+              <tr>
+                <td colSpan="4" className="py-2.5 px-4 text-right font-bold uppercase text-[11px] text-[#667482] border-r border-[#E3E7EA]">
+                  GST (18% / Central & State Tax):
+                </td>
+                <td className="py-2.5 px-4 text-right font-mono font-bold text-[#18794E]">
+                  +{formatCurrency(tax)}
+                </td>
+              </tr>
 
               <tr className="bg-[#EEF4F8]">
-                <td colSpan="2" className="py-3 px-4 text-right uppercase text-xs font-black tracking-wider text-[#0B2A4A] border-r border-[#D8E1E8]">
-                  Total:
+                <td colSpan="4" className="py-3 px-4 text-right uppercase text-xs font-black tracking-wider text-[#0B2A4A] border-r border-[#D8E1E8]">
+                  Document Total (Grand Total):
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-[#0B2A4A] text-base font-black">
                   {formatCurrency(grandTotal)}
@@ -182,7 +212,7 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
               </tr>
 
               <tr>
-                <td colSpan="2" className="py-2 px-4 text-right text-[11px] text-[#667482] border-r border-[#E3E7EA]">
+                <td colSpan="4" className="py-2 px-4 text-right text-[11px] text-[#667482] border-r border-[#E3E7EA]">
                   Paid Amount:
                 </td>
                 <td className="py-2 px-4 text-right font-mono font-bold text-[#18794E] text-xs">
@@ -191,7 +221,7 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
               </tr>
 
               <tr>
-                <td colSpan="2" className="py-2 px-4 text-right text-[11px] font-bold text-[#B42318] border-r border-[#E3E7EA]">
+                <td colSpan="4" className="py-2 px-4 text-right text-[11px] font-bold text-[#B42318] border-r border-[#E3E7EA]">
                   Outstanding Balance:
                 </td>
                 <td className="py-2 px-4 text-right font-mono font-bold text-[#B42318] text-xs">

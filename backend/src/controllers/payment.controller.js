@@ -10,6 +10,7 @@ class PaymentController {
   static async getPayments(req, res, next) {
     try {
       const { method, page = 1, limit = 50 } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
       const where = {};
       if (method && ['cash', 'bank'].includes(method)) {
         where.method = method;

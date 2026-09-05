@@ -275,8 +275,8 @@ class BudgetController {
         return ApiResponse.badRequest(res, `Only confirmed budgets can be revised. Current status: ${originalBudget.status}`);
       }
 
-      const { newPlannedAmount } = req.body;
-      const plannedAmount = newPlannedAmount !== undefined ? toFixedNumber(newPlannedAmount) : Number(originalBudget.planned_amount);
+      const rawNewAmount = req.body.newPlannedAmount !== undefined ? req.body.newPlannedAmount : req.body.new_planned_amount;
+      const plannedAmount = rawNewAmount !== undefined ? toFixedNumber(rawNewAmount) : Number(originalBudget.planned_amount);
 
       // Revised budget name: Project A -> Project A Revised
       let newName = originalBudget.name.trim();
@@ -494,6 +494,45 @@ class BudgetController {
       });
 
       return ApiResponse.created(res, 'Analytic Account created successfully', account);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * PUT /api/budgets/analytic-accounts/:id
+   */
+  static async updateAnalyticAccount(req, res, next) {
+    try {
+      const account = await AnalyticAccount.findByPk(req.params.id);
+      if (!account) {
+        return ApiResponse.notFound(res, `Analytic Account with ID ${req.params.id} not found.`);
+      }
+
+      const { name, type } = req.body;
+      const oldVal = account.toJSON();
+
+      if (name) account.name = name.trim();
+      if (type) {
+        const cleanType = type.toLowerCase().trim();
+        if (!['income', 'expense'].includes(cleanType)) {
+          return ApiResponse.badRequest(res, 'Type must be "income" or "expense".');
+        }
+        account.type = cleanType;
+      }
+
+      await account.save();
+
+      await logAudit({
+        req,
+        action: 'UPDATE_ANALYTIC_ACCOUNT',
+        entity: 'AnalyticAccount',
+        entityId: account.id,
+        oldValue: oldVal,
+        newValue: account.toJSON(),
+      });
+
+      return ApiResponse.success(res, 'Analytic Account updated successfully', account);
     } catch (err) {
       next(err);
     }

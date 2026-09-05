@@ -273,47 +273,124 @@ export default function FinancialReports({ initialReport = 'balance-sheet' }) {
       )}
 
       {/* REPORT 3: BUDGET REPORT */}
-      {activeReport === 'budget' && (
-        <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
-          <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-4">
-            <div>
-              <h3 className="text-base font-bold text-[#0B2A4A] font-display">Department Budget Variance Report</h3>
-              <p className="text-xs text-[#667482]">Committed Planned vs Achieved Actuals from MySQL Invoices & Bills</p>
+      {activeReport === 'budget' && (() => {
+        const totalPlanned = budgetReportData.reduce((acc, b) => acc + Number(b.planned_amount ?? b.plannedAmount ?? 0), 0);
+        const totalAchieved = budgetReportData.reduce((acc, b) => acc + Number(b.achieved_amount ?? b.achievedAmount ?? b.actualSpent ?? 0), 0);
+        const totalVariance = totalPlanned - totalAchieved;
+        const avgUtilization = totalPlanned > 0 ? Math.round((totalAchieved / totalPlanned) * 100) : 0;
+
+        return (
+          <div className="bg-white rounded-2xl border border-[#E3E7EA] shadow-xs overflow-hidden p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E3E7EA] pb-4">
+              <div>
+                <h3 className="text-base font-bold text-[#0B2A4A] font-display">Department Budget Variance Report</h3>
+                <p className="text-xs text-[#667482]">Committed Planned vs Achieved Actuals from MySQL Invoices & Bills</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs px-3 py-1 rounded-full font-bold bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8]">
+                  Overall Utilization: {avgUtilization}%
+                </span>
+              </div>
+            </div>
+
+            {/* Quick KPI Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E3E7EA]">
+                <p className="text-[11px] font-bold uppercase text-[#667482]">Total Planned / Committed</p>
+                <p className="text-lg font-bold font-mono text-[#0B2A4A] mt-1">{formatCurrency(totalPlanned)}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E3E7EA]">
+                <p className="text-[11px] font-bold uppercase text-[#667482]">Total Actual Spent / Invoiced</p>
+                <p className="text-lg font-bold font-mono text-[#C98232] mt-1">{formatCurrency(totalAchieved)}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E3E7EA]">
+                <p className="text-[11px] font-bold uppercase text-[#667482]">Net Available Variance</p>
+                <p className={`text-lg font-bold font-mono mt-1 ${totalVariance >= 0 ? 'text-[#18794E]' : 'text-[#B42318]'}`}>
+                  {formatCurrency(totalVariance)}
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-bold">
+                  <tr>
+                    <th className="p-4">Budget Name</th>
+                    <th className="p-4">Period</th>
+                    <th className="p-4 text-right">Committed</th>
+                    <th className="p-4 text-right">Achieved</th>
+                    <th className="p-4 text-right">Variance</th>
+                    <th className="p-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E7EA]/60">
+                  {budgetReportData.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-[#8A96A3]">
+                        No budget records available.
+                      </td>
+                    </tr>
+                  ) : (
+                    budgetReportData.map((b) => {
+                      const planned = Number(b.planned_amount ?? b.plannedAmount ?? 0);
+                      const achieved = Number(b.achieved_amount ?? b.achievedAmount ?? b.actualSpent ?? 0);
+                      const variance = planned - achieved;
+                      const status = (b.status || 'draft').toLowerCase();
+
+                      return (
+                        <tr key={b.id || b.backendId} className="hover:bg-[#FAFAF8] transition-colors">
+                          <td className="p-4">
+                            <div className="font-bold text-[#0B2A4A]">{b.name}</div>
+                            {b.responsiblePerson && (
+                              <div className="text-[11px] text-[#8A96A3]">Responsible: {b.responsiblePerson}</div>
+                            )}
+                          </td>
+                          <td className="p-4 text-[#667482] font-mono">
+                            {(b.period_start || b.periodStart || '—')} → {(b.period_end || b.periodEnd || '—')}
+                          </td>
+                          <td className="p-4 text-right font-mono font-bold text-[#0B2A4A]">
+                            {formatCurrency(planned)}
+                          </td>
+                          <td className="p-4 text-right font-mono font-bold text-[#C98232]">
+                            {formatCurrency(achieved)}
+                          </td>
+                          <td className={`p-4 text-right font-mono font-bold ${variance >= 0 ? 'text-[#18794E]' : 'text-[#B42318]'}`}>
+                            {formatCurrency(variance)}
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase border ${
+                              status === 'confirmed'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : status === 'revised'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : status === 'cancelled'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}>
+                              {status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+                <tfoot className="bg-[#EEF4F8]/70 border-t-2 border-[#D8E1E8] font-bold text-xs">
+                  <tr>
+                    <td colSpan="2" className="p-4 text-[#0B2A4A] font-bold">Total Portfolio:</td>
+                    <td className="p-4 text-right font-mono text-[#0B2A4A] text-sm">{formatCurrency(totalPlanned)}</td>
+                    <td className="p-4 text-right font-mono text-[#C98232] text-sm">{formatCurrency(totalAchieved)}</td>
+                    <td className={`p-4 text-right font-mono text-sm ${totalVariance >= 0 ? 'text-[#18794E]' : 'text-[#B42318]'}`}>
+                      {formatCurrency(totalVariance)}
+                    </td>
+                    <td className="p-4"></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#EEF4F8] border-b border-[#E3E7EA] text-[#667482] uppercase text-[11px] font-bold">
-                <tr>
-                  <th className="p-4">Budget Name</th>
-                  <th className="p-4">Period</th>
-                  <th className="p-4 text-right">Committed</th>
-                  <th className="p-4 text-right">Achieved</th>
-                  <th className="p-4 text-right">Variance</th>
-                  <th className="p-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E3E7EA]/60">
-                {budgetReportData.map((b) => (
-                  <tr key={b.id} className="hover:bg-[#FAFAF8] transition-colors">
-                    <td className="p-4 font-bold text-[#0B2A4A]">{b.name}</td>
-                    <td className="p-4 text-[#667482]">{b.period_start} → {b.period_end}</td>
-                    <td className="p-4 text-right font-mono font-bold text-[#0B2A4A]">{formatCurrency(b.planned_amount || b.committedAmount)}</td>
-                    <td className="p-4 text-right font-mono font-bold text-[#C98232]">{formatCurrency(b.achieved_amount || b.achievedAmount)}</td>
-                    <td className="p-4 text-right font-mono font-bold text-[#18794E]">{formatCurrency((b.planned_amount || 0) - (b.achieved_amount || 0))}</td>
-                    <td className="p-4 text-center">
-                      <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase bg-[#EEF4F8] text-[#0B2A4A] border border-[#D8E1E8]">
-                        {b.status || 'Active'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* REPORT 4: TRIAL BALANCE */}
       {activeReport === 'trial-balance' && (

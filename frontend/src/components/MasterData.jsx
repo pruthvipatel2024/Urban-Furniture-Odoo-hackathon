@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
   Users,
@@ -41,25 +41,48 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
     analyticAccounts,
     budgets,
     addContact,
+    updateContact,
     archiveContact,
     addProduct,
+    updateProduct,
     adjustProductStock,
     addChartOfAccount,
+    updateChartOfAccount,
     addJournal,
+    updateJournal,
     addAnalyticAccount,
+    updateAnalyticAccount,
     formatCurrency,
     setActiveTab,
-    userRole
+    userRole,
+    getDraft,
+    saveDraft,
+    clearDraft,
   } = useAccounting();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
 
-  // Form View Selection States (Excalidraw: clicking New or record opens Form View)
+  // Explicit CRUD Modes: { mode: 'create' | 'edit', recordId: null }
+  const [contactMode, setContactMode] = useState({ mode: 'create', recordId: null });
+  const [productMode, setProductMode] = useState({ mode: 'create', recordId: null });
+  const [analyticMode, setAnalyticMode] = useState({ mode: 'create', recordId: null });
+  const [coaModalMode, setCoaModalMode] = useState({ mode: 'create', recordId: null });
+  const [journalModalMode, setJournalModalMode] = useState({ mode: 'create', recordId: null });
+
+  // Form View Selection States
   const [selectedContact, setSelectedContact] = useState(null); // contact object or 'new'
   const [selectedProduct, setSelectedProduct] = useState(null); // product object or 'new'
   const [selectedAnalytic, setSelectedAnalytic] = useState(null); // analytic object or 'new'
+
+  // Photo Upload States
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = React.useRef(null);
+
+  // Draft Restored Banner State
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
 
   // Modal States for COA & Journals
   const [showAddCoaModal, setShowAddCoaModal] = useState(false);
@@ -78,7 +101,7 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
     state: 'Maharashtra',
     country: 'India',
     pincode: '400001',
-    imageUrl: ''
+    profileImage: null
   });
 
   const [productFormData, setProductFormData] = useState({
@@ -98,11 +121,11 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
   });
 
   const [coaForm, setCoaForm] = useState({ name: '', type: 'Asset' });
-  const [journalForm, setJournalForm] = useState({ name: '', type: 'General' });
+  const [journalForm, setJournalForm] = useState({ name: '', type: 'General', defaultAccountId: '' });
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Available Categories (supports on-the-fly additions)
+  // Available Categories
   const [categories, setCategories] = useState([
     'Chairs & Seating',
     'Desks & Tables',
@@ -111,9 +134,48 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
     'Office Accessories'
   ]);
 
+  // Draft auto-save effects
+  useEffect(() => {
+    if (selectedContact && saveDraft) {
+      saveDraft('contact', contactMode.mode, contactMode.recordId || 'new', contactFormData);
+    }
+  }, [contactFormData, selectedContact, contactMode]);
+
+  useEffect(() => {
+    if (selectedProduct && saveDraft) {
+      saveDraft('product', productMode.mode, productMode.recordId || 'new', productFormData);
+    }
+  }, [productFormData, selectedProduct, productMode]);
+
+  useEffect(() => {
+    if (selectedAnalytic && saveDraft) {
+      saveDraft('analytic', analyticMode.mode, analyticMode.recordId || 'new', analyticFormData);
+    }
+  }, [analyticFormData, selectedAnalytic, analyticMode]);
+
+  // Photo selection with validation
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setFormError('Please select an image file (PNG, JPG, WEBP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFormError('Image size exceeds 5MB limit.');
+      return;
+    }
+
+    setPhotoFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setPhotoPreview(objectUrl);
+    setFormError('');
+  };
+
   // Handle Contact Selection / New
   const handleOpenNewContact = () => {
-    setContactFormData({
+    const defaultData = {
       name: '',
       type: 'Customer',
       email: '',
@@ -123,14 +185,26 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
       state: 'Maharashtra',
       country: 'India',
       pincode: '400001',
-      imageUrl: ''
-    });
+      profileImage: null
+    };
+    const draft = getDraft ? getDraft('contact', 'create', 'new') : null;
+    if (draft && draft.name) {
+      setContactFormData({ ...defaultData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setContactFormData(defaultData);
+      setHasRestoredDraft(false);
+    }
+    setContactMode({ mode: 'create', recordId: null });
+    setPhotoFile(null);
+    setPhotoPreview(null);
     setFormError('');
     setSelectedContact('new');
   };
 
   const handleOpenEditContact = (c) => {
-    setContactFormData({
+    const rawId = c.backendId || c.id;
+    const initialData = {
       name: c.name || '',
       type: c.type || 'Customer',
       email: c.email || '',
@@ -140,15 +214,26 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
       state: c.address?.state || 'Maharashtra',
       country: c.address?.country || 'India',
       pincode: c.address?.pincode || '400001',
-      imageUrl: c.imageUrl || ''
-    });
+      profileImage: c.profileImage || null
+    };
+    const draft = getDraft ? getDraft('contact', 'edit', rawId) : null;
+    if (draft) {
+      setContactFormData({ ...initialData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setContactFormData(initialData);
+      setHasRestoredDraft(false);
+    }
+    setContactMode({ mode: 'edit', recordId: rawId });
+    setPhotoFile(null);
+    setPhotoPreview(c.profileImage || null);
     setFormError('');
     setSelectedContact(c);
   };
 
   // Handle Product Selection / New
   const handleOpenNewProduct = () => {
-    setProductFormData({
+    const defaultData = {
       name: '',
       type: 'Goods',
       salesPrice: '',
@@ -156,44 +241,113 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
       category: categories[0] || 'Chairs & Seating',
       stock: 10,
       imageUrl: ''
-    });
+    };
+    const draft = getDraft ? getDraft('product', 'create', 'new') : null;
+    if (draft && draft.name) {
+      setProductFormData({ ...defaultData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setProductFormData(defaultData);
+      setHasRestoredDraft(false);
+    }
+    setProductMode({ mode: 'create', recordId: null });
     setFormError('');
     setSelectedProduct('new');
   };
 
   const handleOpenEditProduct = (p) => {
-    setProductFormData({
+    const rawId = p.backendId || p.id;
+    const initialData = {
       name: p.name || '',
       type: p.type || 'Goods',
-      salesPrice: p.salesPrice || '',
-      costPrice: p.costPrice || p.cost || '',
+      salesPrice: p.salesPrice !== undefined ? p.salesPrice : '',
+      costPrice: p.costPrice !== undefined ? p.costPrice : (p.cost || ''),
       category: p.category || 'Chairs & Seating',
       stock: p.availableStock !== undefined ? p.availableStock : (p.stock || 0),
       imageUrl: p.imageUrl || ''
-    });
+    };
+    const draft = getDraft ? getDraft('product', 'edit', rawId) : null;
+    if (draft) {
+      setProductFormData({ ...initialData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setProductFormData(initialData);
+      setHasRestoredDraft(false);
+    }
+    setProductMode({ mode: 'edit', recordId: rawId });
     setFormError('');
     setSelectedProduct(p);
   };
 
   // Handle Analytic Selection / New
   const handleOpenNewAnalytic = () => {
-    setAnalyticFormData({
+    const defaultData = {
       name: '',
       type: 'expense',
       description: ''
-    });
+    };
+    const draft = getDraft ? getDraft('analytic', 'create', 'new') : null;
+    if (draft && draft.name) {
+      setAnalyticFormData({ ...defaultData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setAnalyticFormData(defaultData);
+      setHasRestoredDraft(false);
+    }
+    setAnalyticMode({ mode: 'create', recordId: null });
     setFormError('');
     setSelectedAnalytic('new');
   };
 
   const handleOpenEditAnalytic = (a) => {
-    setAnalyticFormData({
+    const rawId = a.backendId || a.id;
+    const initialData = {
       name: a.name || '',
       type: (a.type || 'expense').toLowerCase(),
       description: a.description || ''
-    });
+    };
+    const draft = getDraft ? getDraft('analytic', 'edit', rawId) : null;
+    if (draft) {
+      setAnalyticFormData({ ...initialData, ...draft });
+      setHasRestoredDraft(true);
+    } else {
+      setAnalyticFormData(initialData);
+      setHasRestoredDraft(false);
+    }
+    setAnalyticMode({ mode: 'edit', recordId: rawId });
     setFormError('');
     setSelectedAnalytic(a);
+  };
+
+  // Modal open handlers for COA and Journals
+  const handleOpenNewCoa = () => {
+    setCoaForm({ name: '', type: 'Asset' });
+    setCoaModalMode({ mode: 'create', recordId: null });
+    setShowAddCoaModal(true);
+  };
+
+  const handleOpenEditCoa = (acc) => {
+    const rawId = acc.backendId || acc.id;
+    setCoaForm({ name: acc.name || acc.account_name, type: acc.type || 'Asset' });
+    setCoaModalMode({ mode: 'edit', recordId: rawId });
+    setShowAddCoaModal(true);
+  };
+
+  const handleOpenNewJournal = () => {
+    setJournalForm({ name: '', type: 'General', defaultAccountId: '' });
+    setJournalModalMode({ mode: 'create', recordId: null });
+    setShowAddJournalModal(true);
+  };
+
+  const handleOpenEditJournal = (j) => {
+    const rawId = j.backendId || j.id;
+    setJournalForm({
+      name: j.name,
+      type: j.type || 'General',
+      defaultAccountId: j.defaultAccountId || ''
+    });
+    setJournalModalMode({ mode: 'edit', recordId: rawId });
+    setShowAddJournalModal(true);
   };
 
   // Submit Contact Form
@@ -206,7 +360,7 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
       return;
     }
 
-    if (contactFormData.email && selectedContact === 'new') {
+    if (contactFormData.email && contactMode.mode === 'create') {
       const emailExists = contacts.some(c => c.email && c.email.toLowerCase() === contactFormData.email.toLowerCase().trim());
       if (emailExists) {
         setFormError('A contact with this unique email address already exists in MySQL.');
@@ -216,8 +370,17 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
 
     setIsSubmitting(true);
     try {
-      await addContact(contactFormData);
+      if (contactMode.mode === 'edit' && contactMode.recordId) {
+        await updateContact(contactMode.recordId, { ...contactFormData, photoFile });
+        if (clearDraft) clearDraft('contact', 'edit', contactMode.recordId);
+      } else {
+        await addContact({ ...contactFormData, photoFile });
+        if (clearDraft) clearDraft('contact', 'create', 'new');
+      }
       setSelectedContact(null);
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      setHasRestoredDraft(false);
     } catch (err) {
       setFormError(err.message || 'Failed to save contact.');
     } finally {
@@ -237,8 +400,15 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
 
     setIsSubmitting(true);
     try {
-      await addProduct(productFormData);
+      if (productMode.mode === 'edit' && productMode.recordId) {
+        await updateProduct(productMode.recordId, productFormData);
+        if (clearDraft) clearDraft('product', 'edit', productMode.recordId);
+      } else {
+        await addProduct(productFormData);
+        if (clearDraft) clearDraft('product', 'create', 'new');
+      }
       setSelectedProduct(null);
+      setHasRestoredDraft(false);
     } catch (err) {
       setFormError(err.message || 'Failed to save product.');
     } finally {
@@ -258,8 +428,15 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
 
     setIsSubmitting(true);
     try {
-      await addAnalyticAccount(analyticFormData);
+      if (analyticMode.mode === 'edit' && analyticMode.recordId) {
+        await updateAnalyticAccount(analyticMode.recordId, analyticFormData);
+        if (clearDraft) clearDraft('analytic', 'edit', analyticMode.recordId);
+      } else {
+        await addAnalyticAccount(analyticFormData);
+        if (clearDraft) clearDraft('analytic', 'create', 'new');
+      }
       setSelectedAnalytic(null);
+      setHasRestoredDraft(false);
     } catch (err) {
       setFormError(err.message || 'Failed to save analytic account.');
     } finally {
@@ -451,9 +628,14 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h3 className="text-base font-bold text-[#0B2A4A]">
-                  {selectedContact === 'new' ? 'Contact Master Form View' : `Contact — ${contactFormData.name}`}
-                </h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-[#0B2A4A]">
+                    {contactMode.mode === 'edit' ? `Edit Contact — ${contactFormData.name}` : 'New Contact Form View'}
+                  </h3>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${contactMode.mode === 'edit' ? 'bg-[#F8F0E6] text-[#C98232] border border-[#C98232]/30' : 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#E3E7EA]'}`}>
+                    {contactMode.mode === 'edit' ? `Edit Mode (#${contactMode.recordId})` : 'Create Mode'}
+                  </span>
+                </div>
                 <p className="text-xs text-[#667482]">Manage customer or vendor contact profile</p>
               </div>
             </div>
@@ -469,7 +651,7 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               <button
                 onClick={handleSaveContact}
                 disabled={isSubmitting}
-                className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? 'Saving...' : 'Confirm'}
               </button>
@@ -482,6 +664,32 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               </button>
             </div>
           </div>
+
+          {hasRestoredDraft && (
+            <div className="p-3 bg-[#EEF4F8] border border-[#0B2A4A]/20 rounded-xl text-xs text-[#0B2A4A] flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-[#0B2A4A]" />
+                <span>Unsaved draft restored from previous session.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (contactMode.mode === 'edit' && contactMode.recordId) {
+                    if (clearDraft) clearDraft('contact', 'edit', contactMode.recordId);
+                    const orig = contacts.find(c => (c.backendId || c.id) === contactMode.recordId);
+                    if (orig) handleOpenEditContact(orig);
+                  } else {
+                    if (clearDraft) clearDraft('contact', 'create', 'new');
+                    handleOpenNewContact();
+                  }
+                  setHasRestoredDraft(false);
+                }}
+                className="text-xs text-[#B42318] hover:underline font-semibold cursor-pointer"
+              >
+                Discard Draft
+              </button>
+            </div>
+          )}
 
           {formError && (
             <div className="p-3.5 bg-[#FDECEC] border border-[#B42318]/30 rounded-xl text-[#B42318] text-xs flex items-center space-x-2">
@@ -602,16 +810,42 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               </div>
             </div>
 
-            {/* Right: Upload Image Card */}
+            {/* Right: Upload Image Card with Real File Input & Preview */}
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-[#17212B]">Upload Image</label>
-              <div className="border-2 border-dashed border-[#E3E7EA] rounded-2xl p-6 text-center bg-[#FAFAF8] flex flex-col items-center justify-center space-y-3">
-                <div className="w-16 h-16 rounded-2xl bg-[#EEF4F8] border border-[#E3E7EA] flex items-center justify-center text-[#0B2A4A] text-xl font-bold">
-                  {contactFormData.name ? contactFormData.name.charAt(0).toUpperCase() : <ImageIcon className="w-6 h-6 text-[#8A96A3]" />}
-                </div>
+              <label className="block text-xs font-semibold text-[#17212B]">Contact Photo</label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handlePhotoSelect}
+                className="hidden"
+                id="contact-photo-input"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-[#E3E7EA] hover:border-[#0B2A4A] rounded-2xl p-6 text-center bg-[#FAFAF8] flex flex-col items-center justify-center space-y-3 cursor-pointer transition-colors group"
+              >
+                {photoPreview || contactFormData.profileImage ? (
+                  <div className="relative group/preview">
+                    <img
+                      src={photoPreview || contactFormData.profileImage}
+                      alt="Contact Preview"
+                      className="w-24 h-24 rounded-2xl object-cover border border-[#E3E7EA] shadow-xs"
+                    />
+                    <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover/preview:opacity-100 flex items-center justify-center text-white text-[11px] font-semibold transition-opacity">
+                      Change Photo
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-[#EEF4F8] border border-[#E3E7EA] flex items-center justify-center text-[#0B2A4A] text-xl font-bold group-hover:bg-[#E2ECF2] transition-colors">
+                    {contactFormData.name ? contactFormData.name.charAt(0).toUpperCase() : <ImageIcon className="w-6 h-6 text-[#8A96A3]" />}
+                  </div>
+                )}
                 <div className="text-xs text-[#667482]">
-                  <p className="font-semibold text-[#17212B]">Contact Avatar / Logo</p>
-                  <p className="text-[10px] text-[#8A96A3] mt-0.5">PNG, JPG, SVG up to 5MB</p>
+                  <p className="font-semibold text-[#17212B] group-hover:text-[#0B2A4A] transition-colors">
+                    {photoPreview || contactFormData.profileImage ? 'Click to Change Photo' : 'Click to Upload Photo'}
+                  </p>
+                  <p className="text-[10px] text-[#8A96A3] mt-0.5">PNG, JPG, WEBP up to 5MB</p>
                 </div>
               </div>
             </div>
@@ -634,9 +868,14 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h3 className="text-base font-bold text-[#0B2A4A]">
-                  {selectedProduct === 'new' ? 'Product Master Form View' : `Product — ${productFormData.name}`}
-                </h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-[#0B2A4A]">
+                    {productMode.mode === 'edit' ? `Edit Product — ${productFormData.name}` : 'New Product Form View'}
+                  </h3>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${productMode.mode === 'edit' ? 'bg-[#F8F0E6] text-[#C98232] border border-[#C98232]/30' : 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#E3E7EA]'}`}>
+                    {productMode.mode === 'edit' ? `Edit Mode (#${productMode.recordId})` : 'Create Mode'}
+                  </span>
+                </div>
                 <p className="text-xs text-[#667482]">Catalog pricing, category assignment and stock level</p>
               </div>
             </div>
@@ -652,7 +891,7 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               <button
                 onClick={handleSaveProduct}
                 disabled={isSubmitting}
-                className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? 'Saving...' : 'Confirm'}
               </button>
@@ -665,6 +904,32 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               </button>
             </div>
           </div>
+
+          {hasRestoredDraft && (
+            <div className="p-3 bg-[#EEF4F8] border border-[#0B2A4A]/20 rounded-xl text-xs text-[#0B2A4A] flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-[#0B2A4A]" />
+                <span>Unsaved draft restored from previous session.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (productMode.mode === 'edit' && productMode.recordId) {
+                    if (clearDraft) clearDraft('product', 'edit', productMode.recordId);
+                    const orig = products.find(p => (p.backendId || p.id) === productMode.recordId);
+                    if (orig) handleOpenEditProduct(orig);
+                  } else {
+                    if (clearDraft) clearDraft('product', 'create', 'new');
+                    handleOpenNewProduct();
+                  }
+                  setHasRestoredDraft(false);
+                }}
+                className="text-xs text-[#B42318] hover:underline font-semibold cursor-pointer"
+              >
+                Discard Draft
+              </button>
+            </div>
+          )}
 
           {formError && (
             <div className="p-3.5 bg-[#FDECEC] border border-[#B42318]/30 rounded-xl text-[#B42318] text-xs flex items-center space-x-2">
@@ -812,9 +1077,14 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h3 className="text-base font-bold text-[#0B2A4A]">
-                  {selectedAnalytic === 'new' ? 'Analytic Account Form View' : `Analytic Account — ${analyticFormData.name}`}
-                </h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-[#0B2A4A]">
+                    {analyticMode.mode === 'edit' ? `Edit Analytic Account — ${analyticFormData.name}` : 'New Analytic Account Form View'}
+                  </h3>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${analyticMode.mode === 'edit' ? 'bg-[#F8F0E6] text-[#C98232] border border-[#C98232]/30' : 'bg-[#EEF4F8] text-[#0B2A4A] border border-[#E3E7EA]'}`}>
+                    {analyticMode.mode === 'edit' ? `Edit Mode (#${analyticMode.recordId})` : 'Create Mode'}
+                  </span>
+                </div>
                 <p className="text-xs text-[#667482]">Multi-dimensional cost center & revenue project tracking</p>
               </div>
             </div>
@@ -830,7 +1100,7 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               <button
                 onClick={handleSaveAnalytic}
                 disabled={isSubmitting}
-                className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? 'Saving...' : 'Confirm'}
               </button>
@@ -843,6 +1113,32 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
               </button>
             </div>
           </div>
+
+          {hasRestoredDraft && (
+            <div className="p-3 bg-[#EEF4F8] border border-[#0B2A4A]/20 rounded-xl text-xs text-[#0B2A4A] flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-[#0B2A4A]" />
+                <span>Unsaved draft restored from previous session.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (analyticMode.mode === 'edit' && analyticMode.recordId) {
+                    if (clearDraft) clearDraft('analytic', 'edit', analyticMode.recordId);
+                    const orig = analyticAccounts.find(a => (a.backendId || a.id) === analyticMode.recordId);
+                    if (orig) handleOpenEditAnalytic(orig);
+                  } else {
+                    if (clearDraft) clearDraft('analytic', 'create', 'new');
+                    handleOpenNewAnalytic();
+                  }
+                  setHasRestoredDraft(false);
+                }}
+                className="text-xs text-[#B42318] hover:underline font-semibold cursor-pointer"
+              >
+                Discard Draft
+              </button>
+            </div>
+          )}
 
           {formError && (
             <div className="p-3.5 bg-[#FDECEC] border border-[#B42318]/30 rounded-xl text-[#B42318] text-xs flex items-center space-x-2">
@@ -1003,8 +1299,12 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                             <input type="checkbox" className="rounded border-[#E3E7EA] text-[#0B2A4A] focus:ring-[#EEF4F8]" />
                           </td>
                           <td className="p-4">
-                            <div className="w-8 h-8 rounded-lg bg-[#EEF4F8] border border-[#E3E7EA] flex items-center justify-center text-[#0B2A4A] font-bold text-xs">
-                              {c.name.charAt(0).toUpperCase()}
+                            <div className="w-8 h-8 rounded-lg bg-[#EEF4F8] border border-[#E3E7EA] flex items-center justify-center text-[#0B2A4A] font-bold text-xs overflow-hidden">
+                              {c.profileImage ? (
+                                <img src={c.profileImage} alt={c.name} className="w-full h-full object-cover" />
+                              ) : (
+                                c.name.charAt(0).toUpperCase()
+                              )}
                             </div>
                           </td>
                           <td className="p-4 font-bold text-[#0B2A4A]">{c.name}</td>
@@ -1040,8 +1340,12 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                     className="bg-[#FAFAF8] hover:bg-white rounded-2xl border border-[#E3E7EA] p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-3"
                   >
                     <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#EEF4F8] text-[#0B2A4A] font-bold flex items-center justify-center text-sm border border-[#E3E7EA]">
-                        {c.name.charAt(0).toUpperCase()}
+                      <div className="w-10 h-10 rounded-xl bg-[#EEF4F8] text-[#0B2A4A] font-bold flex items-center justify-center text-sm border border-[#E3E7EA] overflow-hidden">
+                        {c.profileImage ? (
+                          <img src={c.profileImage} alt={c.name} className="w-full h-full object-cover" />
+                        ) : (
+                          c.name.charAt(0).toUpperCase()
+                        )}
                       </div>
                       <div>
                         <h4 className="font-bold text-[#0B2A4A] text-sm leading-tight">{c.name}</h4>
@@ -1229,12 +1533,13 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                     <th className="p-4">Account Name</th>
                     <th className="p-4">Account Type</th>
                     <th className="p-4 text-right">Current Balance</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E3E7EA]/60">
                   {filteredCoA.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="p-8 text-center text-[#8A96A3]">
+                      <td colSpan="5" className="p-8 text-center text-[#8A96A3]">
                         No chart of accounts found.
                       </td>
                     </tr>
@@ -1250,6 +1555,15 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                         </td>
                         <td className="p-4 text-right font-mono font-bold text-[#17212B]">
                           {formatCurrency(acc.currentBalance ?? acc.balance)}
+                        </td>
+                        <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleOpenEditCoa(acc)}
+                            className="p-1.5 text-[#667482] hover:text-[#0B2A4A] rounded-lg hover:bg-[#EEF4F8] cursor-pointer"
+                            title="Edit Account"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1269,12 +1583,13 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                     <th className="p-4">Journal Name</th>
                     <th className="p-4">Journal Type</th>
                     <th className="p-4">Default Debit / Credit Account</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E3E7EA]/60">
                   {journals.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="p-8 text-center text-[#8A96A3]">
+                      <td colSpan="5" className="p-8 text-center text-[#8A96A3]">
                         No journals configured.
                       </td>
                     </tr>
@@ -1289,6 +1604,15 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                           </span>
                         </td>
                         <td className="p-4 text-[#667482]">{j.defaultDebitAccountName || j.defaultCreditAccountName || 'Automated General Ledger'}</td>
+                        <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleOpenEditJournal(j)}
+                            className="p-1.5 text-[#667482] hover:text-[#0B2A4A] rounded-lg hover:bg-[#EEF4F8] cursor-pointer"
+                            title="Edit Journal"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1299,12 +1623,14 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
         </div>
       )}
 
-      {/* Modal: New Chart of Account */}
+      {/* Modal: New / Edit Chart of Account */}
       {showAddCoaModal && (
         <div className="fixed inset-0 z-50 bg-[#0B2A4A]/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 border border-[#E3E7EA]">
             <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-3">
-              <h3 className="font-bold text-[#0B2A4A] text-sm">New Chart of Account</h3>
+              <h3 className="font-bold text-[#0B2A4A] text-sm">
+                {coaModalMode.mode === 'edit' ? `Edit Account (#${coaModalMode.recordId})` : 'New Chart of Account'}
+              </h3>
               <button onClick={() => setShowAddCoaModal(false)} className="text-[#8A96A3] hover:text-[#0B2A4A] cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
@@ -1343,28 +1669,40 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                 Cancel
               </button>
               <button
+                disabled={isSubmitting}
                 onClick={async () => {
                   if (coaForm.name.trim()) {
-                    await addChartOfAccount(coaForm);
-                    setShowAddCoaModal(false);
-                    setCoaForm({ name: '', type: 'Asset' });
+                    setIsSubmitting(true);
+                    try {
+                      if (coaModalMode.mode === 'edit' && coaModalMode.recordId) {
+                        await updateChartOfAccount(coaModalMode.recordId, coaForm);
+                      } else {
+                        await addChartOfAccount(coaForm);
+                      }
+                      setShowAddCoaModal(false);
+                      setCoaForm({ name: '', type: 'Asset' });
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold shadow-xs cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
               >
-                Create Account
+                {isSubmitting ? 'Saving...' : (coaModalMode.mode === 'edit' ? 'Update Account' : 'Create Account')}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal: New Journal */}
+      {/* Modal: New / Edit Journal */}
       {showAddJournalModal && (
         <div className="fixed inset-0 z-50 bg-[#0B2A4A]/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 border border-[#E3E7EA]">
             <div className="flex items-center justify-between border-b border-[#E3E7EA] pb-3">
-              <h3 className="font-bold text-[#0B2A4A] text-sm">New Journal Configuration</h3>
+              <h3 className="font-bold text-[#0B2A4A] text-sm">
+                {journalModalMode.mode === 'edit' ? `Edit Journal (#${journalModalMode.recordId})` : 'New Journal Configuration'}
+              </h3>
               <button onClick={() => setShowAddJournalModal(false)} className="text-[#8A96A3] hover:text-[#0B2A4A] cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
@@ -1400,16 +1738,26 @@ export default function MasterData({ activeSubTab = 'contacts', setActiveSubTab 
                 Cancel
               </button>
               <button
+                disabled={isSubmitting}
                 onClick={async () => {
                   if (journalForm.name.trim()) {
-                    await addJournal(journalForm);
-                    setShowAddJournalModal(false);
-                    setJournalForm({ name: '', type: 'General' });
+                    setIsSubmitting(true);
+                    try {
+                      if (journalModalMode.mode === 'edit' && journalModalMode.recordId) {
+                        await updateJournal(journalModalMode.recordId, journalForm);
+                      } else {
+                        await addJournal(journalForm);
+                      }
+                      setShowAddJournalModal(false);
+                      setJournalForm({ name: '', type: 'General', defaultAccountId: '' });
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold shadow-xs cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[#0B2A4A] hover:bg-[#163B63] text-white text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
               >
-                Create Journal
+                {isSubmitting ? 'Saving...' : (journalModalMode.mode === 'edit' ? 'Update Journal' : 'Create Journal')}
               </button>
             </div>
           </div>

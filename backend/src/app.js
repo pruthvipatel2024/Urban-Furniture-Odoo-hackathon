@@ -10,7 +10,11 @@ const { errorHandler } = require('./middleware/error.middleware');
 const ApiResponse = require('./utils/response');
 const { sequelize } = require('./models');
 
+const path = require('path');
 const app = express();
+
+// Serve static uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Security HTTP Headers
 app.use(helmet({

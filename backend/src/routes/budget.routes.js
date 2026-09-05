@@ -9,12 +9,15 @@ router.use(authenticate, isAdminOrAccountant);
 router.get('/', BudgetController.getBudgets);
 router.get('/analytic-accounts', BudgetController.getAnalyticAccounts);
 router.post('/analytic-accounts', BudgetController.createAnalyticAccount);
+router.put('/analytic-accounts/:id', BudgetController.updateAnalyticAccount);
 router.get('/:id', BudgetController.getBudgetById);
 router.get('/:id/transactions', BudgetController.getBudgetTransactions);
 router.post('/', BudgetController.createBudget);
 router.put('/:id', BudgetController.updateBudget);
 router.post('/:id/confirm', BudgetController.confirmBudget);
+router.put('/:id/confirm', BudgetController.confirmBudget);
 router.post('/:id/cancel', BudgetController.cancelBudget);
+router.put('/:id/cancel', BudgetController.cancelBudget);
 router.post('/:id/revise', BudgetController.reviseBudget);
 router.delete('/:id', isAdmin, BudgetController.deleteBudget);
 
