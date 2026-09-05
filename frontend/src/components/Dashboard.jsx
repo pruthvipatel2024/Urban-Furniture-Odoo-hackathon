@@ -57,7 +57,7 @@ export default function Dashboard({
           {/* Header Top Row: Logo + Badges + 2-Line Title */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
             <div className="flex items-center space-x-5">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xl border-2 border-teak-400/50 shrink-0 teak-glow">
+              <div className="w-[6.5rem] h-[6.5rem] rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xl border-2 border-teak-400/50 shrink-0 teak-glow">
                 <img
                   src="/logo.png"
                   alt="Urban Furniture Official Logo"
