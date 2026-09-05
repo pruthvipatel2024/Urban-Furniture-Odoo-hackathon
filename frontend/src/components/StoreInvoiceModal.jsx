@@ -100,31 +100,31 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
         </div>
 
         {/* ========================================================= */}
-        {/* 3. PRODUCT TABLE: PRODUCT DETAIL | QTY | PRICE */}
+        {/* 3. PRODUCT TABLE & CONNECTED TOTALS SUMMARY */}
         {/* ========================================================= */}
-        <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm">
+        <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm bg-white">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white font-bold uppercase tracking-wider">
                 <th className="py-3 px-4 border-r border-slate-800">Product Detail</th>
                 <th className="py-3 px-4 text-center border-r border-slate-800 w-24">Qty</th>
-                <th className="py-3 px-4 text-right w-36">Price (₹)</th>
+                <th className="py-3 px-4 text-right w-44">Price (₹)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {invoice.items && invoice.items.length > 0 ? (
                 invoice.items.map((item, index) => (
-                  <tr key={index} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4 border-r border-slate-200">
+                  <tr key={index} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 border-r border-slate-200">
                       <p className="font-bold text-slate-900">{item.productName}</p>
                       {item.description && (
                         <p className="text-[11px] text-slate-500 mt-0.5">{item.description}</p>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 border-r border-slate-200">
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 border-r border-slate-200">
                       {item.qty}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                    <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
                       {formatCurrency(item.total || (item.qty * item.unitPrice))}
                     </td>
                   </tr>
@@ -137,41 +137,57 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
                 </tr>
               )}
             </tbody>
+
+            {/* CONNECTED SUMMARY FOOTER */}
+            <tfoot className="border-t-2 border-slate-900 bg-slate-50/90 divide-y divide-slate-200 text-xs">
+              <tr>
+                <td colSpan="2" className="py-2.5 px-4 text-right font-bold uppercase text-[11px] text-slate-600 border-r border-slate-200">
+                  Sum (Subtotal):
+                </td>
+                <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
+                  {formatCurrency(subtotal)}
+                </td>
+              </tr>
+
+              {tax > 0 && (
+                <tr>
+                  <td colSpan="2" className="py-2.5 px-4 text-right font-bold uppercase text-[11px] text-slate-600 border-r border-slate-200">
+                    GST (18%):
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
+                    {formatCurrency(tax)}
+                  </td>
+                </tr>
+              )}
+
+              <tr className="bg-slate-100/90">
+                <td colSpan="2" className="py-3 px-4 text-right uppercase text-xs font-black tracking-wider text-slate-900 border-r border-slate-300">
+                  Total:
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-emerald-700 text-base font-black">
+                  {formatCurrency(grandTotal)}
+                </td>
+              </tr>
+
+              <tr>
+                <td colSpan="2" className="py-2 px-4 text-right text-[11px] text-slate-600 border-r border-slate-200">
+                  Paid Amount:
+                </td>
+                <td className="py-2 px-4 text-right font-mono font-bold text-emerald-600 text-xs">
+                  {formatCurrency(paidAmount)}
+                </td>
+              </tr>
+
+              <tr>
+                <td colSpan="2" className="py-2 px-4 text-right text-[11px] font-bold text-rose-700 border-r border-slate-200">
+                  Outstanding Balance:
+                </td>
+                <td className="py-2 px-4 text-right font-mono font-bold text-rose-700 text-xs">
+                  {formatCurrency(balance)}
+                </td>
+              </tr>
+            </tfoot>
           </table>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 4. TOTALS BLOCK: SUM | GST (18%) | TOTAL */}
-        {/* ========================================================= */}
-        <div className="flex justify-start">
-          <div className="w-full sm:w-80 border border-slate-300 rounded-xl p-4 bg-slate-50/90 space-y-2 text-xs">
-            <div className="flex justify-between items-center text-slate-700">
-              <span className="font-semibold uppercase text-[11px]">Sum (Subtotal):</span>
-              <span className="font-mono font-bold text-slate-900">{formatCurrency(subtotal)}</span>
-            </div>
-            
-            {tax > 0 && (
-              <div className="flex justify-between items-center text-slate-700">
-                <span className="font-semibold uppercase text-[11px]">GST (18%):</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(tax)}</span>
-              </div>
-            )}
-
-            <div className="pt-2 border-t-2 border-slate-900 flex justify-between items-center text-slate-900 font-black text-sm">
-              <span className="uppercase tracking-wider">Total:</span>
-              <span className="font-mono text-emerald-700 text-base">{formatCurrency(grandTotal)}</span>
-            </div>
-
-            <div className="pt-1 border-t border-slate-200 flex justify-between items-center text-[11px] text-slate-600">
-              <span>Paid Amount:</span>
-              <span className="font-mono font-bold text-emerald-600">{formatCurrency(paidAmount)}</span>
-            </div>
-
-            <div className="flex justify-between items-center text-xs font-bold text-rose-700">
-              <span>Outstanding Balance:</span>
-              <span className="font-mono">{formatCurrency(balance)}</span>
-            </div>
-          </div>
         </div>
 
         {/* ========================================================= */}
