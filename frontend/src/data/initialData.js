@@ -620,3 +620,31 @@ export const initialPayments = [
     notes: 'Online payment received via UPI/Netbanking for 5 chairs.'
   }
 ];
+
+export const initialNotifications = [
+  {
+    id: 'NOTIF-001',
+    title: 'New Customer Invoice Generated',
+    message: 'Invoice INV-2026-002 generated for Modern Spaces Co. (₹75,000)',
+    type: 'invoice',
+    timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    read: false
+  },
+  {
+    id: 'NOTIF-002',
+    title: 'New Sales Order Created',
+    message: 'Sales Order SO-2026-002 confirmed for Modern Spaces Co. (₹56,640)',
+    type: 'sales',
+    timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    read: false
+  },
+  {
+    id: 'NOTIF-003',
+    title: 'Payment Registered',
+    message: 'Payment of ₹25,000 registered for Invoice INV-2026-001 (Nimesh Pathak)',
+    type: 'payment',
+    timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+    read: true
+  }
+];
+
