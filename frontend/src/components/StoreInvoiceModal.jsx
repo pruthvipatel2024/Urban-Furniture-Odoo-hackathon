@@ -143,7 +143,7 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
         {/* ========================================================= */}
         {/* 4. TOTALS BLOCK: SUM | GST (18%) | TOTAL */}
         {/* ========================================================= */}
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <div className="w-full sm:w-80 border border-slate-300 rounded-xl p-4 bg-slate-50/90 space-y-2 text-xs">
             <div className="flex justify-between items-center text-slate-700">
               <span className="font-semibold uppercase text-[11px]">Sum (Subtotal):</span>
