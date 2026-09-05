@@ -82,11 +82,12 @@ export default function Dashboard({
             </div>
           </div>
 
-          {/* Subtitle (2 Lines) + Cleanly Aligned Buttons Below */}
+          {/* Subtitle (Shortened to 3 Lines) + Cleanly Aligned Buttons Below */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-              Automated double-entry bookkeeping connecting Master Data, Purchases, Sales,<br className="hidden sm:inline" />
-              Invoices, Payments, Inventory Stock, Budgets, and Real-Time Financial Statements.
+              Automated double-entry bookkeeping connecting Sales, Purchases, & Inventory.<br />
+              Real-time financial reporting, ledger posting, & department budget control.<br />
+              Complete end-to-end ERP accounting system for modern furniture business.
             </p>
 
             {/* Quick Action Buttons */}
