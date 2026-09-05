@@ -79,11 +79,16 @@ export default function PaymentModal({
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="glass-panel bg-slate-900 rounded-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center space-x-2">
-            <CreditCard className="w-5 h-5 text-indigo-400" />
-            <h3 className="font-bold text-sm text-slate-100">Register Accounting Payment</h3>
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-navy-950 p-1 border border-teak-500/30 shadow-sm shrink-0">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-slate-100">Register Accounting Payment</h3>
+              <p className="text-[10px] text-teak-400">Urban Furniture Automated Double-Entry</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
             <X className="w-4 h-4" />
           </button>
         </div>

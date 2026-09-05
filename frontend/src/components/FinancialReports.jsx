@@ -41,15 +41,34 @@ export default function FinancialReports() {
 
   return (
     <div className="space-y-6">
+      {/* Official Company Statement Header (with Logo) */}
+      <div className="glass-panel p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-teak-500/30">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center border border-teak-500/40 shadow-lg shrink-0">
+            <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <h2 className="text-base font-extrabold text-slate-100 font-display">Urban Furniture Ltd. — Financial Statements</h2>
+            <p className="text-xs text-slate-400">Official GAAP/Double-Entry Statutory Financial Reports • FY 2026-2027</p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <span className="text-xs font-mono font-bold text-teak-300 bg-teak-950/60 px-3 py-1 rounded-xl border border-teak-700/50">
+            Audit Status: Live Verified
+          </span>
+        </div>
+      </div>
+
       {/* Top Filter & Report Switcher */}
-      <div className="glass-panel p-4 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="glass-panel p-4 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 no-print">
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveReport('balance-sheet')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeReport === 'balance-sheet'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-r from-teak-600 to-teak-500 text-white shadow-lg shadow-teak-600/30 font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-navy-900'
             }`}
           >
             <Scale className="w-4 h-4" />
@@ -60,8 +79,8 @@ export default function FinancialReports() {
             onClick={() => setActiveReport('pnl')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeReport === 'pnl'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-r from-teak-600 to-teak-500 text-white shadow-lg shadow-teak-600/30 font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-navy-900'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -72,8 +91,8 @@ export default function FinancialReports() {
             onClick={() => setActiveReport('budget')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeReport === 'budget'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-r from-teak-600 to-teak-500 text-white shadow-lg shadow-teak-600/30 font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-navy-900'
             }`}
           >
             <PieChart className="w-4 h-4" />
@@ -84,8 +103,8 @@ export default function FinancialReports() {
             onClick={() => setActiveReport('stock')}
             className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeReport === 'stock'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-r from-teak-600 to-teak-500 text-white shadow-lg shadow-teak-600/30 font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-navy-900'
             }`}
           >
             <Package className="w-4 h-4" />
@@ -95,8 +114,8 @@ export default function FinancialReports() {
 
         {/* Date Filter & Actions */}
         <div className="flex items-center space-x-3 text-xs">
-          <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center space-x-2 bg-[#080e1e] px-3 py-1.5 rounded-xl border border-[#1e3e62]/60">
+            <Calendar className="w-3.5 h-3.5 text-teak-400" />
             <span className="text-slate-400 font-medium">As of Date:</span>
             <input
               type="date"
@@ -108,7 +127,7 @@ export default function FinancialReports() {
 
           <button
             onClick={() => window.print()}
-            className="p-2 text-slate-400 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors"
+            className="p-2 text-slate-400 hover:text-white bg-[#080e1e] hover:bg-navy-900 border border-[#1e3e62]/60 rounded-xl transition-colors"
             title="Print Financial Report"
           >
             <Printer className="w-4 h-4" />

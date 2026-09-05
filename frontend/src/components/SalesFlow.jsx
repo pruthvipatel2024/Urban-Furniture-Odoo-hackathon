@@ -565,24 +565,24 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
       {selectedInvoiceForPrint && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white text-slate-900 rounded-2xl max-w-2xl w-full p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 printable-document">
-            {/* Header */}
-            <div className="flex justify-between items-start border-b border-slate-200 pb-5">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
-                    UF
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Urban Furniture Ltd.</h2>
+            {/* Header with Logo */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-14 h-14 rounded-xl bg-white p-1 flex items-center justify-center border border-slate-200 shadow-sm shrink-0">
+                  <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">GSTIN: 27AABCU1234F1Z8 | CIN: U36100MH2024PTC123456</p>
-                <p className="text-xs text-slate-500">Bhiwandi Furniture Park, Mumbai, Maharashtra - 421302</p>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight font-display">Urban Furniture Ltd.</h2>
+                  <p className="text-[11px] text-slate-500">GSTIN: 27AABCU1234F1Z8 | CIN: U36100MH2024PTC123456</p>
+                  <p className="text-[11px] text-slate-500">Bhiwandi Furniture Park, Mumbai, Maharashtra - 421302</p>
+                </div>
               </div>
 
               <div className="text-right">
-                <span className="text-xs font-mono font-bold bg-slate-100 text-slate-800 px-3 py-1 rounded-full uppercase">
+                <span className="text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-full uppercase">
                   Tax Invoice
                 </span>
-                <h3 className="text-lg font-mono font-extrabold text-indigo-700 mt-2">{selectedInvoiceForPrint.id}</h3>
+                <h3 className="text-lg font-mono font-extrabold text-slate-900 mt-2">{selectedInvoiceForPrint.id}</h3>
                 <p className="text-xs text-slate-500">Date: {selectedInvoiceForPrint.date}</p>
                 <p className="text-xs text-slate-500">Due: {selectedInvoiceForPrint.dueDate}</p>
               </div>

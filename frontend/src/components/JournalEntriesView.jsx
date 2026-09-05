@@ -123,11 +123,11 @@ export default function JournalEntriesView() {
       {/* Top Banner Status */}
       <div className="glass-panel p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30">
-            <ListOrdered className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg border border-teak-500/40 shrink-0">
+            <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h3 className="font-bold text-sm text-slate-100">Double-Entry Accounting Ledger & Journals</h3>
+            <h3 className="font-bold text-sm text-slate-100 font-display">Double-Entry Accounting Ledger & Journals</h3>
             <p className="text-xs text-slate-400">Strict mathematical integrity: every debit equals credit across all operations.</p>
           </div>
         </div>

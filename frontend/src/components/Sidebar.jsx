@@ -14,7 +14,6 @@ import {
   Layers,
   PieChart,
   Sparkles,
-  BarChart3,
   UserCheck
 } from 'lucide-react';
 
@@ -60,25 +59,31 @@ export default function Sidebar() {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-slate-950/70 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-[#0b1329]/80 z-40 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-slate-950 text-slate-300 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 border-r border-slate-800/80 shadow-2xl ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#080e1e] text-slate-300 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 border-r border-[#1e3e62]/40 shadow-2xl ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Brand Header */}
-        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-800 bg-slate-950/60">
+        {/* Brand Header with Official Logo */}
+        <div className="h-20 px-5 flex items-center justify-between border-b border-[#1e3e62]/40 bg-[#060a17]">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-              <Building2 className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg border border-[#c58940]/40 shrink-0">
+              <img
+                src="/logo.png"
+                alt="Urban Furniture Logo"
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
             <div>
-              <h1 className="font-bold text-white tracking-wide text-sm leading-tight">Urban Furniture</h1>
-              <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-800/50">
+              <h1 className="font-display font-extrabold text-white tracking-wide text-base leading-tight">
+                Urban Furniture
+              </h1>
+              <span className="text-[10px] text-teak-400 font-semibold uppercase tracking-wider bg-[#132b4f]/80 px-2 py-0.5 rounded-full border border-teak-500/30">
                 ERP Accounting
               </span>
             </div>
@@ -86,19 +91,19 @@ export default function Sidebar() {
         </div>
 
         {/* Demo Tour Assistant Banner */}
-        <div className="p-3 border-b border-slate-800/60">
+        <div className="p-3 border-b border-[#1e3e62]/30">
           <button
             onClick={() => {
               setShowDemoTourModal(true);
               setSidebarOpen(false);
             }}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-indigo-500/15 to-amber-500/15 border border-amber-500/30 hover:border-amber-400 text-amber-300 text-xs font-bold transition-all shadow-sm group"
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-teak-600/20 via-navy-800/40 to-teak-600/20 border border-teak-500/40 hover:border-teak-400 text-teak-300 text-xs font-bold transition-all shadow-sm group"
           >
             <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <Sparkles className="w-4 h-4 text-teak-400 group-hover:scale-110 transition-transform" />
               <span>14-Step Demo Tour</span>
             </div>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono">
+            <span className="text-[10px] bg-teak-500/30 text-teak-200 px-1.5 py-0.5 rounded font-mono font-bold">
               Guide
             </span>
           </button>
@@ -125,10 +130,10 @@ export default function Sidebar() {
                         setActiveTab(item.id);
                         setSidebarOpen(false);
                       }}
-                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                      className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                         isActive
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                          ? 'bg-gradient-to-r from-teak-600 to-teak-500 text-white shadow-lg shadow-teak-600/30 font-bold'
+                          : 'text-slate-400 hover:text-white hover:bg-[#132b4f]/50'
                       }`}
                     >
                       <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
@@ -142,14 +147,14 @@ export default function Sidebar() {
         </div>
 
         {/* Footer info */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40 text-xs">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-900/60 text-indigo-300 flex items-center justify-center font-bold text-xs border border-indigo-700/50">
-              UF
+        <div className="p-4 border-t border-[#1e3e62]/40 bg-[#060a17] text-xs">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center border border-teak-500/40 shrink-0">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain rounded" />
             </div>
             <div>
               <p className="font-bold text-slate-200">Urban Furniture Ltd.</p>
-              <p className="text-[10px] text-slate-500">FY 2026-2027 • Double-Entry</p>
+              <p className="text-[10px] text-teak-400/80 font-mono">FY 2026-2027 • Double-Entry</p>
             </div>
           </div>
         </div>

@@ -535,9 +535,14 @@ export default function PurchaseFlow({ showCreateModal = false, setShowCreateMod
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-panel bg-slate-900 rounded-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-amber-400" />
-                <h3 className="font-bold text-sm text-slate-100">Vendor Bill {selectedBillForView.id}</h3>
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white p-0.5 border border-teak-500/40 shrink-0">
+                  <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-100 font-display">Vendor Bill {selectedBillForView.id}</h3>
+                  <p className="text-[10px] text-slate-400">Urban Furniture Accounting Ledger</p>
+                </div>
               </div>
               <button onClick={() => setSelectedBillForView(null)} className="text-slate-400 hover:text-white">
                 <X className="w-4 h-4" />

@@ -4,65 +4,61 @@
 
 @layer base {
   body {
-    @apply bg-slate-900 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white;
+    @apply bg-[#0b1329] text-slate-100 font-sans antialiased selection:bg-[#c58940] selection:text-white;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar styled for Navy/Teak theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #080d1d;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #1e3e62;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #c58940;
 }
 
-/* Glassmorphism utility classes */
+/* Glassmorphism theme classes matching Urban Furniture Logo */
 .glass-panel {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(13, 27, 54, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(197, 137, 64, 0.15);
 }
 
 .glass-card {
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(11, 19, 41, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-dropdown {
-  background: rgba(15, 23, 42, 0.95);
+  background: rgba(11, 19, 41, 0.96);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(197, 137, 64, 0.25);
 }
 
-/* Micro animations */
-@keyframes pulseGlow {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
+.teak-glow {
+  box-shadow: 0 0 25px -5px rgba(197, 137, 64, 0.3);
 }
 
-.animate-pulse-glow {
-  animation: pulseGlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.navy-glow {
+  box-shadow: 0 0 25px -5px rgba(30, 62, 98, 0.5);
 }
 
 /* Printable Statement and Invoice Styles */

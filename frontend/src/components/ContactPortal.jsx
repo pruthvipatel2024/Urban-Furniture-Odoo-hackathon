@@ -32,13 +32,45 @@ export default function ContactPortal() {
 
   return (
     <div className="space-y-6">
+      {/* Enterprise Header Banner */}
+      <div className="glass-panel p-4 rounded-2xl flex items-center justify-between border border-teak-500/20 bg-gradient-to-r from-navy-900/90 via-slate-900/90 to-navy-950/90">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-navy-950 p-1 border border-teak-500/30 flex items-center justify-center shadow-md">
+            <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-100 flex items-center space-x-2">
+              <span>Urban Furniture</span>
+              <span className="text-[10px] bg-teak-500/20 text-teak-300 px-2 py-0.5 rounded-md border border-teak-500/30">External Portal</span>
+            </h2>
+            <p className="text-xs text-slate-400">Self-Service Accounting Ledger & Real-Time Invoicing Portal</p>
+          </div>
+        </div>
+
+        {/* Portal Switcher for Demo */}
+        <div className="flex items-center space-x-2 bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-xs">
+          <span className="text-teak-400 font-semibold">Simulate As:</span>
+          <select
+            value={activeContact.id}
+            onChange={(e) => setActiveContactId(e.target.value)}
+            className="bg-slate-900 text-teak-300 font-bold px-3 py-1.5 rounded-lg border border-teak-500/30 outline-none cursor-pointer"
+          >
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.type})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Contact Switcher & Profile Card */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-500/30">
+      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-teak-500/30">
         <div className="flex items-center space-x-4">
           <img
             src={activeContact.profileImage}
             alt={activeContact.name}
-            className="w-14 h-14 rounded-full object-cover border-2 border-indigo-500/50 shadow-md"
+            className="w-14 h-14 rounded-full object-cover border-2 border-teak-500/50 shadow-md"
           />
           <div>
             <div className="flex items-center space-x-2">
@@ -47,7 +79,7 @@ export default function ContactPortal() {
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                   activeContact.type === 'Customer'
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-teak-500/20 text-teak-300 border border-teak-500/30'
                 }`}
               >
                 {activeContact.type} Portal
@@ -56,22 +88,6 @@ export default function ContactPortal() {
             <p className="text-xs text-slate-400 mt-0.5">{activeContact.email} • {activeContact.mobile}</p>
             <p className="text-xs text-slate-400">{activeContact.address?.city}, {activeContact.address?.state}</p>
           </div>
-        </div>
-
-        {/* Portal Switcher for Demo */}
-        <div className="flex items-center space-x-2 bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-xs">
-          <span className="text-slate-400 font-medium">Simulate As:</span>
-          <select
-            value={activeContact.id}
-            onChange={(e) => setActiveContactId(e.target.value)}
-            className="bg-slate-900 text-indigo-300 font-bold px-3 py-1.5 rounded-lg border border-slate-700 outline-none cursor-pointer"
-          >
-            {contacts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.type})
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 

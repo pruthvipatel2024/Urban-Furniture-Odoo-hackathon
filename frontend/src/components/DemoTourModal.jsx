@@ -179,13 +179,16 @@ export default function DemoTourModal({ isOpen, onClose }) {
       <div className="glass-panel bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-indigo-500/30 animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
-              <Sparkles className="w-5 h-5 text-amber-300" />
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-navy-950 p-1 border border-teak-500/30 flex items-center justify-center shadow-lg shadow-navy-950/50 shrink-0">
+              <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h2 className="font-bold text-base text-slate-100">End-to-End Accounting Demo Story</h2>
-              <p className="text-xs text-indigo-300">Guided Walkthrough for Hackathon Judges & Evaluators</p>
+              <h2 className="font-bold text-base text-slate-100 flex items-center space-x-2">
+                <span>Urban Furniture — Demo Story</span>
+                <span className="text-[10px] bg-teak-500/20 text-teak-300 px-2 py-0.5 rounded-md border border-teak-500/30">Odoo Hackathon</span>
+              </h2>
+              <p className="text-xs text-teak-400">14-Step End-to-End Accounting Workflow for Evaluators</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800">

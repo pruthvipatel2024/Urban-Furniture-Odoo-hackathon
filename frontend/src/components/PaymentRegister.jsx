@@ -214,9 +214,14 @@ export default function PaymentRegister() {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white text-slate-900 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl printable-document animate-in fade-in zoom-in-95">
             <div className="flex justify-between items-start border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-base text-slate-900">Official Payment Voucher</h3>
-                <p className="text-xs text-slate-500 font-mono">Urban Furniture ERP • {selectedVoucherForPrint.id}</p>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-200 shadow-sm shrink-0">
+                  <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 font-display">Official Payment Voucher</h3>
+                  <p className="text-xs text-slate-500 font-mono">Urban Furniture ERP • {selectedVoucherForPrint.id}</p>
+                </div>
               </div>
               <button onClick={() => setSelectedVoucherForPrint(null)} className="text-slate-400 hover:text-slate-600 no-print">
                 <X className="w-4 h-4" />
