@@ -11,7 +11,8 @@ import {
   initialSalesOrders,
   initialInvoices,
   initialJournalEntries,
-  initialPayments
+  initialPayments,
+  initialNotifications
 } from '../data/initialData';
 
 const AccountingContext = createContext();
@@ -30,6 +31,38 @@ export function AccountingProvider({ children }) {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
+
+  // Notification System State
+  const [notifications, setNotifications] = useState(initialNotifications);
+
+  const addNotification = ({ title, message, type = 'info' }) => {
+    const newNotif = {
+      id: `NOTIF-${Date.now()}`,
+      title,
+      message,
+      type, // 'sales' | 'invoice' | 'purchase' | 'bill' | 'payment' | 'contact' | 'product' | 'budget'
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+    return newNotif;
+  };
+
+  const markNotificationAsRead = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  const unreadNotificationCount = useMemo(() => {
+    return notifications.filter(n => !n.read).length;
+  }, [notifications]);
 
   // State Entities
   const [contacts, setContacts] = useState(initialContacts);
@@ -298,6 +331,11 @@ export function AccountingProvider({ children }) {
 
     setPurchaseOrders([newPO, ...purchaseOrders]);
     showToast(`Purchase Order ${newId} created for ${newPO.vendorName} (${formatCurrency(totalAmount)}).`);
+    addNotification({
+      title: 'New Purchase Order Issued',
+      message: `Purchase Order ${newId} issued to ${newPO.vendorName} (${formatCurrency(totalAmount)})`,
+      type: 'purchase'
+    });
     return newPO;
   };
 
@@ -386,6 +424,11 @@ export function AccountingProvider({ children }) {
     ));
 
     showToast(`Vendor Bill ${billId} generated! Auto Double-Entry (${jeId}) posted to Ledger.`);
+    addNotification({
+      title: 'New Vendor Bill Generated',
+      message: `Vendor Bill ${billId} generated for ${po.vendorName} (${formatCurrency(po.totalAmount)})`,
+      type: 'bill'
+    });
     return newBill;
   };
 
@@ -443,6 +486,11 @@ export function AccountingProvider({ children }) {
 
     setSalesOrders([newSO, ...salesOrders]);
     showToast(`Sales Order ${newId} confirmed for ${newSO.customerName} (${formatCurrency(totalAmount)}).`);
+    addNotification({
+      title: 'New Sales Order Created',
+      message: `Sales Order ${newId} confirmed for ${newSO.customerName} (${formatCurrency(totalAmount)})`,
+      type: 'sales'
+    });
     return newSO;
   };
 
@@ -520,6 +568,7 @@ export function AccountingProvider({ children }) {
       customerId: so.customerId,
       customerName: so.customerName,
       customerEmail: customer?.email || 'customer@client.com',
+      customerPhone: customer?.mobile || customer?.phone || '+91 98123 45678',
       customerAddress: customer?.address ? `${customer.address.city}, ${customer.address.state} - ${customer.address.pincode}` : 'Mumbai, India',
       date: invDate,
       dueDate,
@@ -543,6 +592,11 @@ export function AccountingProvider({ children }) {
     ));
 
     showToast(`Customer Invoice ${invId} generated! Auto Double-Entry (${jeId}) posted to Ledger.`);
+    addNotification({
+      title: 'New Customer Invoice Generated',
+      message: `Customer Invoice ${invId} generated for ${so.customerName} (${formatCurrency(so.totalAmount)})`,
+      type: 'invoice'
+    });
     return newInvoice;
   };
 
@@ -635,6 +689,11 @@ export function AccountingProvider({ children }) {
 
     setPayments([newPayment, ...payments]);
     showToast(`Payment of ${formatCurrency(payAmt)} registered for ${docId}! Ledger updated with ${jeId}.`);
+    addNotification({
+      title: 'Payment Registered',
+      message: `Payment of ${formatCurrency(payAmt)} registered for ${docId} (${contactName})`,
+      type: 'payment'
+    });
     return newPayment;
   };
 
@@ -878,6 +937,14 @@ export function AccountingProvider({ children }) {
     setSearchQuery,
     toast,
     showToast,
+
+    // Notification System
+    notifications,
+    unreadNotificationCount,
+    addNotification,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    clearNotifications,
 
     // Entities
     contacts,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
+import StoreInvoiceModal from './StoreInvoiceModal';
 import {
   TrendingUp,
   Receipt,
@@ -345,9 +346,34 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           ) : (
-                            <span className="text-[11px] font-mono text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50">
-                              Inv: {so.invoiceId}
-                            </span>
+                            <div className="flex items-center justify-end space-x-1.5">
+                              <span className="text-[11px] font-mono text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50">
+                                Inv: {so.invoiceId}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const targetInv = invoices.find(i => i.id === so.invoiceId || i.soRef === so.id) || {
+                                    id: so.invoiceId || `INV-${so.id}`,
+                                    soRef: so.id,
+                                    customerName: so.customerName,
+                                    date: so.date,
+                                    dueDate: so.date,
+                                    items: so.items,
+                                    subtotal: so.totalAmount ? (so.totalAmount / 1.18) : 0,
+                                    tax: so.totalAmount ? (so.totalAmount - (so.totalAmount / 1.18)) : 0,
+                                    totalAmount: so.totalAmount,
+                                    paidAmount: 0,
+                                    balance: so.totalAmount,
+                                    status: 'Posted'
+                                  };
+                                  setSelectedInvoiceForPrint(targetInv);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800 transition-colors"
+                                title="View / Print Store Bill"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -559,131 +585,13 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* CUSTOMER INVOICE PRINT / PDF MODAL */}
-      {/* ========================================================= */}
+      {/* CUSTOMER INVOICE PRINT / PDF MODAL MATCHING STORE BILL SKETCH */}
       {selectedInvoiceForPrint && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white text-slate-900 rounded-2xl max-w-2xl w-full p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 printable-document">
-            {/* Header with Logo */}
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-14 h-14 rounded-xl bg-white p-1 flex items-center justify-center border border-slate-200 shadow-sm shrink-0">
-                  <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight font-display">Urban Furniture Ltd.</h2>
-                  <p className="text-[11px] text-slate-500">GSTIN: 27AABCU1234F1Z8 | CIN: U36100MH2024PTC123456</p>
-                  <p className="text-[11px] text-slate-500">Bhiwandi Furniture Park, Mumbai, Maharashtra - 421302</p>
-                </div>
-              </div>
-
-              <div className="text-right">
-                <span className="text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-full uppercase">
-                  Tax Invoice
-                </span>
-                <h3 className="text-lg font-mono font-extrabold text-slate-900 mt-2">{selectedInvoiceForPrint.id}</h3>
-                <p className="text-xs text-slate-500">Date: {selectedInvoiceForPrint.date}</p>
-                <p className="text-xs text-slate-500">Due: {selectedInvoiceForPrint.dueDate}</p>
-              </div>
-            </div>
-
-            {/* Bill to */}
-            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Billed To:</span>
-                <p className="font-bold text-slate-900 text-sm mt-0.5">{selectedInvoiceForPrint.customerName}</p>
-                <p className="text-slate-600 mt-0.5">{selectedInvoiceForPrint.customerAddress}</p>
-                <p className="text-slate-600">{selectedInvoiceForPrint.customerEmail}</p>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Payment Status:</span>
-                <p className="mt-1">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                      selectedInvoiceForPrint.status === 'Paid'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {selectedInvoiceForPrint.status}
-                  </span>
-                </p>
-                <p className="text-[11px] text-slate-500 mt-2 font-mono">
-                  Linked SO: {selectedInvoiceForPrint.soRef}
-                </p>
-              </div>
-            </div>
-
-            {/* Items Table */}
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-200 text-slate-600 font-bold">
-                  <th className="py-2.5">Item Description</th>
-                  <th className="py-2.5 text-center">Qty</th>
-                  <th className="py-2.5 text-right">Unit Price (₹)</th>
-                  <th className="py-2.5 text-right">Amount (₹)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {selectedInvoiceForPrint.items?.map((item, i) => (
-                  <tr key={i}>
-                    <td className="py-3 font-semibold text-slate-800">{item.productName}</td>
-                    <td className="py-3 text-center font-mono">{item.qty}</td>
-                    <td className="py-3 text-right font-mono">{formatCurrency(item.unitPrice)}</td>
-                    <td className="py-3 text-right font-mono font-bold">{formatCurrency(item.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Totals */}
-            <div className="flex justify-end pt-4 border-t border-slate-200">
-              <div className="w-64 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal:</span>
-                  <span className="font-mono font-bold">{formatCurrency(selectedInvoiceForPrint.subtotal || selectedInvoiceForPrint.totalAmount)}</span>
-                </div>
-                {selectedInvoiceForPrint.tax > 0 && (
-                  <div className="flex justify-between text-slate-600">
-                    <span>GST (18%):</span>
-                    <span className="font-mono font-bold">{formatCurrency(selectedInvoiceForPrint.tax)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-slate-900 font-extrabold text-sm pt-2 border-t border-slate-200">
-                  <span>Grand Total:</span>
-                  <span className="font-mono text-emerald-700">{formatCurrency(selectedInvoiceForPrint.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-slate-500 text-[11px]">
-                  <span>Paid Amount:</span>
-                  <span className="font-mono font-bold text-emerald-600">{formatCurrency(selectedInvoiceForPrint.paidAmount || 0)}</span>
-                </div>
-                <div className="flex justify-between text-rose-600 font-bold">
-                  <span>Outstanding Balance:</span>
-                  <span className="font-mono">{formatCurrency(selectedInvoiceForPrint.balance)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-between items-center pt-4 border-t border-slate-200 no-print">
-              <button
-                onClick={() => window.print()}
-                className="inline-flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print Tax Invoice (PDF)</span>
-              </button>
-
-              <button
-                onClick={() => setSelectedInvoiceForPrint(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <StoreInvoiceModal
+          invoice={selectedInvoiceForPrint}
+          onClose={() => setSelectedInvoiceForPrint(null)}
+          formatCurrency={formatCurrency}
+        />
       )}
     </div>
   );

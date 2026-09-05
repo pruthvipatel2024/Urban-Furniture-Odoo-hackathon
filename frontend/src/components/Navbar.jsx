@@ -13,8 +13,24 @@ import {
   ShoppingCart,
   TrendingUp,
   BookOpen,
-  PieChart
+  PieChart,
+  Receipt,
+  CheckCircle2,
+  CheckCheck
 } from 'lucide-react';
+
+const formatTimeAgo = (isoString) => {
+  if (!isoString) return 'Recently';
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  return `${diffDays}d ago`;
+};
 
 export default function Navbar({
   onOpenNewInvoice,
@@ -28,14 +44,16 @@ export default function Navbar({
     searchQuery,
     setSearchQuery,
     setShowDemoTourModal,
-    journalEntries,
-    setActiveTab
+    setActiveTab,
+    notifications,
+    unreadNotificationCount,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    clearNotifications
   } = useAccounting();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showQuickMenu, setShowQuickMenu] = useState(false);
-
-  const recentEntries = journalEntries.slice(0, 4);
 
   return (
     <header className="sticky top-0 z-30 h-16 glass-panel border-b border-[#1e3e62]/40 px-4 lg:px-8 flex items-center justify-between">
@@ -149,32 +167,107 @@ export default function Navbar({
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="p-2 text-slate-400 hover:text-white hover:bg-navy-900 rounded-xl relative transition-all"
+            title="Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-teak-500 rounded-full ring-2 ring-[#0b1329]"></span>
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-extrabold text-slate-950 shadow-lg ring-2 ring-[#0b1329] animate-pulse">
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            )}
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 glass-dropdown rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 border border-teak-500/30">
-              <div className="flex items-center justify-between pb-2 border-b border-[#1e3e62]/40 mb-2">
-                <span className="font-bold text-xs text-slate-100 font-display">Live Double-Entry Activity</span>
-                <span className="text-[10px] text-emerald-400 bg-emerald-500/20 font-mono px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  Balanced
-                </span>
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 glass-dropdown rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 border border-teak-500/30">
+              <div className="flex items-center justify-between pb-2.5 border-b border-[#1e3e62]/40 mb-3">
+                <div className="flex items-center space-x-2">
+                  <Bell className="w-4 h-4 text-teak-400" />
+                  <span className="font-bold text-xs text-slate-100 font-display">Notifications</span>
+                  {unreadNotificationCount > 0 && (
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/20 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 font-mono">
+                      {unreadNotificationCount} Unread
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2 text-[11px]">
+                  {unreadNotificationCount > 0 && (
+                    <button
+                      onClick={markAllNotificationsAsRead}
+                      className="text-teak-300 hover:text-teak-200 font-semibold transition-colors flex items-center space-x-1"
+                    >
+                      <CheckCheck className="w-3 h-3" />
+                      <span>Read All</span>
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={clearNotifications}
+                      className="text-slate-400 hover:text-rose-400 font-medium transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2 text-xs">
-                {recentEntries.map((je) => (
-                  <div key={je.id} className="p-2.5 rounded-xl bg-[#080e1e] border border-[#1e3e62]/40">
-                    <div className="flex justify-between items-center">
-                      <span className="font-mono font-bold text-teak-400 text-[11px]">{je.id}</span>
-                      <span className="text-[10px] text-slate-500">{je.date}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 font-medium mt-0.5">{je.reference}</p>
-                    <p className="text-[10px] text-emerald-400 font-mono mt-1">
-                      Posted to {je.journalType} Journal
-                    </p>
+
+              <div className="max-h-80 overflow-y-auto space-y-2 text-xs pr-1">
+                {notifications.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p className="text-xs font-medium">No notifications yet</p>
+                    <p className="text-[11px] text-slate-500">Creating a Sales Order or Customer Invoice will log live activity here.</p>
                   </div>
-                ))}
+                ) : (
+                  notifications.map((notif) => {
+                    let IconComponent = Bell;
+                    let iconBgClass = 'bg-teak-500/20 text-teak-300 border-teak-500/30';
+
+                    if (notif.type === 'sales') {
+                      IconComponent = TrendingUp;
+                      iconBgClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+                    } else if (notif.type === 'invoice') {
+                      IconComponent = Receipt;
+                      iconBgClass = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+                    } else if (notif.type === 'purchase' || notif.type === 'bill') {
+                      IconComponent = ShoppingCart;
+                      iconBgClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                    } else if (notif.type === 'payment') {
+                      IconComponent = CreditCard;
+                      iconBgClass = 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+                    }
+
+                    return (
+                      <div
+                        key={notif.id}
+                        onClick={() => markNotificationAsRead(notif.id)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start space-x-3 ${
+                          notif.read
+                            ? 'bg-[#080e1e]/60 border-[#1e3e62]/20 opacity-75 hover:opacity-100'
+                            : 'bg-[#080e1e] border-teak-500/40 shadow-sm hover:border-teak-400'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-xl border shrink-0 ${iconBgClass}`}>
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-[12px] text-slate-100 truncate">{notif.title}</h4>
+                            <span className="text-[10px] text-slate-500 shrink-0 ml-2">
+                              {formatTimeAgo(notif.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 leading-snug">{notif.message}</p>
+                        </div>
+
+                        {!notif.read && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1"></span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}
@@ -208,3 +301,4 @@ export default function Navbar({
     </header>
   );
 }
+
