@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, DollarSign, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { useAccounting } from '../context/AccountingContext';
+import { CreditCard, DollarSign, AlertCircle, CheckCircle2, X, BookOpen } from 'lucide-react';
 
 export default function PaymentModal({
   isOpen,
   onClose,
-  targetDoc, // { id, totalAmount, balance, vendorName, customerName, type: 'Vendor Bill' | 'Customer Invoice' }
-  invoices,
-  vendorBills,
-  onRecordPayment
+  targetDoc
 }) {
+  const {
+    invoices,
+    vendorBills,
+    recordPayment,
+    formatCurrency
+  } = useAccounting();
+
   const [selectedDocId, setSelectedDocId] = useState('');
   const [docType, setDocType] = useState('Customer Invoice');
   const [paymentMethod, setPaymentMethod] = useState('Bank Account (HDFC)');
@@ -19,16 +24,17 @@ export default function PaymentModal({
   useEffect(() => {
     if (targetDoc) {
       setSelectedDocId(targetDoc.id);
-      setDocType(targetDoc.type || (targetDoc.id.startsWith('BILL') ? 'Vendor Bill' : 'Customer Invoice'));
+      const isBill = targetDoc.id.startsWith('BILL') || targetDoc.type === 'Vendor Bill';
+      setDocType(isBill ? 'Vendor Bill' : 'Customer Invoice');
       setAmount(targetDoc.balance);
     }
   }, [targetDoc]);
 
   if (!isOpen) return null;
 
-  // Find active doc
-  const activeDoc = docType === 'Customer Invoice' 
-    ? invoices.find(i => i.id === selectedDocId) 
+  // Active document object
+  const activeDoc = docType === 'Customer Invoice'
+    ? invoices.find(i => i.id === selectedDocId)
     : vendorBills.find(b => b.id === selectedDocId);
 
   const maxBalance = activeDoc ? activeDoc.balance : 0;
@@ -39,104 +45,122 @@ export default function PaymentModal({
 
     const payAmt = Number(amount);
     if (!payAmt || payAmt <= 0) {
-      setErrorMsg('Payment amount must be greater than 0');
+      setErrorMsg('Payment amount must be greater than 0.');
       return;
     }
 
     if (payAmt > maxBalance + 0.01) {
-      setErrorMsg(`Payment amount (₹${payAmt}) cannot exceed remaining balance (₹${maxBalance})`);
+      setErrorMsg(`Payment amount (${formatCurrency(payAmt)}) cannot exceed remaining balance (${formatCurrency(maxBalance)}).`);
       return;
     }
 
     if (!activeDoc) {
-      setErrorMsg('Please select a valid document to pay');
+      setErrorMsg('Please select a valid document to settle.');
       return;
     }
 
-    onRecordPayment({
-      docId: activeDoc.id,
-      docType,
-      contactName: activeDoc.customerName || activeDoc.vendorName,
-      paymentMethod,
-      amount: payAmt,
-      notes
-    });
+    try {
+      recordPayment({
+        docId: activeDoc.id,
+        docType,
+        contactName: activeDoc.customerName || activeDoc.vendorName,
+        method: paymentMethod,
+        amount: payAmt,
+        notes
+      });
 
-    onClose();
-  };
-
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(val);
+      onClose();
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="glass-panel bg-slate-900 rounded-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center space-x-2">
-            <CreditCard className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-base font-bold text-slate-900">Register Payment</h3>
+            <CreditCard className="w-5 h-5 text-indigo-400" />
+            <h3 className="font-bold text-sm text-slate-100">Register Accounting Payment</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 font-medium flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-          {/* Document Type Selector */}
+          {/* Transaction Category Selector */}
           <div>
-            <label className="block text-slate-600 font-medium mb-1">Transaction Category</label>
+            <label className="block text-slate-400 font-medium mb-1">Transaction Category</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => { setDocType('Customer Invoice'); setSelectedDocId(''); setAmount(''); }}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold ${docType === 'Customer Invoice' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                onClick={() => {
+                  setDocType('Customer Invoice');
+                  setSelectedDocId('');
+                  setAmount('');
+                }}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-colors ${
+                  docType === 'Customer Invoice'
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}
               >
-                Customer Receipt
+                Customer Receipt (Inflow)
               </button>
               <button
                 type="button"
-                onClick={() => { setDocType('Vendor Bill'); setSelectedDocId(''); setAmount(''); }}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold ${docType === 'Vendor Bill' ? 'bg-amber-50 border-amber-500 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                onClick={() => {
+                  setDocType('Vendor Bill');
+                  setSelectedDocId('');
+                  setAmount('');
+                }}
+                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-colors ${
+                  docType === 'Vendor Bill'
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                }`}
               >
-                Vendor Outflow
+                Vendor Payout (Outflow)
               </button>
             </div>
           </div>
 
           {/* Document Dropdown */}
           <div>
-            <label className="block text-slate-600 font-medium mb-1">Select Document *</label>
+            <label className="block text-slate-400 font-medium mb-1">Select Document to Settle *</label>
             <select
               required
               value={selectedDocId}
               onChange={(e) => {
                 const id = e.target.value;
                 setSelectedDocId(id);
-                const doc = docType === 'Customer Invoice' ? invoices.find(i => i.id === id) : vendorBills.find(b => b.id === id);
+                const doc = docType === 'Customer Invoice'
+                  ? invoices.find(i => i.id === id)
+                  : vendorBills.find(b => b.id === id);
                 if (doc) setAmount(doc.balance);
               }}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none focus:border-indigo-500 font-bold"
             >
-              <option value="">-- Choose Unpaid Document --</option>
+              <option value="">-- Choose Unsettled Document --</option>
               {docType === 'Customer Invoice' ? (
                 invoices.filter(i => i.balance > 0).map(i => (
-                  <option key={i.id} value={i.id}>{i.id} - {i.customerName} (Bal: ₹{i.balance})</option>
+                  <option key={i.id} value={i.id}>
+                    {i.id} - {i.customerName} (Due: ₹{i.balance})
+                  </option>
                 ))
               ) : (
                 vendorBills.filter(b => b.balance > 0).map(b => (
-                  <option key={b.id} value={b.id}>{b.id} - {b.vendorName} (Bal: ₹{b.balance})</option>
+                  <option key={b.id} value={b.id}>
+                    {b.id} - {b.vendorName} (Due: ₹{b.balance})
+                  </option>
                 ))
               )}
             </select>
@@ -144,28 +168,28 @@ export default function PaymentModal({
 
           {/* Active Balance Indicator */}
           {activeDoc && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs">
-              <span className="text-slate-500">Outstanding Balance:</span>
-              <span className="font-extrabold text-indigo-600 text-sm">{formatCurrency(maxBalance)}</span>
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+              <span className="text-slate-400">Current Outstanding:</span>
+              <span className="font-extrabold text-indigo-400 text-sm font-mono">{formatCurrency(maxBalance)}</span>
             </div>
           )}
 
-          {/* Payment Method */}
+          {/* Payment Account */}
           <div>
-            <label className="block text-slate-600 font-medium mb-1">Payment Method / Account</label>
+            <label className="block text-slate-400 font-medium mb-1">Payment Method / Ledger Account</label>
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
             >
-              <option value="Bank Account (HDFC)">Bank Account (HDFC)</option>
-              <option value="Cash on Hand">Cash on Hand</option>
+              <option value="Bank Account (HDFC)">Bank Account (HDFC Current A/C)</option>
+              <option value="Cash on Hand">Cash on Hand (Petty Cash)</option>
             </select>
           </div>
 
-          {/* Payment Amount */}
+          {/* Amount Input */}
           <div>
-            <label className="block text-slate-600 font-medium mb-1">Payment Amount (₹) *</label>
+            <label className="block text-slate-400 font-medium mb-1">Settlement Amount (₹) *</label>
             <input
               type="number"
               required
@@ -174,18 +198,18 @@ export default function PaymentModal({
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-900"
+              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-emerald-400 font-bold font-mono text-sm outline-none focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-slate-600 font-medium mb-1">Reference Notes</label>
+            <label className="block text-slate-400 font-medium mb-1">Payment Notes & Reference</label>
             <input
               type="text"
-              placeholder="e.g. UTR #9821389123 / Cheque #004"
+              placeholder="e.g. UTR #9821389123 / IMPS Reference"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
             />
           </div>
 
@@ -193,15 +217,15 @@ export default function PaymentModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-medium"
+              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-md"
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold shadow-lg shadow-indigo-600/25"
             >
-              Confirm & Post Ledger Payment
+              Confirm & Post to Ledger
             </button>
           </div>
         </form>
