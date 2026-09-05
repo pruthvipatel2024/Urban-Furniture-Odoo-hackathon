@@ -346,9 +346,34 @@ export default function SalesFlow({ showCreateModal = false, setShowCreateModal 
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           ) : (
-                            <span className="text-[11px] font-mono text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50">
-                              Inv: {so.invoiceId}
-                            </span>
+                            <div className="flex items-center justify-end space-x-1.5">
+                              <span className="text-[11px] font-mono text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50">
+                                Inv: {so.invoiceId}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const targetInv = invoices.find(i => i.id === so.invoiceId || i.soRef === so.id) || {
+                                    id: so.invoiceId || `INV-${so.id}`,
+                                    soRef: so.id,
+                                    customerName: so.customerName,
+                                    date: so.date,
+                                    dueDate: so.date,
+                                    items: so.items,
+                                    subtotal: so.totalAmount ? (so.totalAmount / 1.18) : 0,
+                                    tax: so.totalAmount ? (so.totalAmount - (so.totalAmount / 1.18)) : 0,
+                                    totalAmount: so.totalAmount,
+                                    paidAmount: 0,
+                                    balance: so.totalAmount,
+                                    status: 'Posted'
+                                  };
+                                  setSelectedInvoiceForPrint(targetInv);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800 transition-colors"
+                                title="View / Print Store Bill"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </td>
