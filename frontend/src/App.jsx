@@ -13,8 +13,9 @@ import FinancialReports from './components/FinancialReports';
 import ContactPortal from './components/ContactPortal';
 import PaymentModal from './components/PaymentModal';
 import DemoTourModal from './components/DemoTourModal';
+import LoginPage from './components/LoginPage';
 
-import { CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Info, Loader2 } from 'lucide-react';
 
 function AppContent() {
   const {
@@ -27,7 +28,9 @@ function AppContent() {
     paymentTargetDoc,
     setPaymentTargetDoc,
     showDemoTourModal,
-    setShowDemoTourModal
+    setShowDemoTourModal,
+    isAuthenticated,
+    authLoading
   } = useAccounting();
 
   // Create Modal triggers for child components
@@ -43,6 +46,43 @@ function AppContent() {
     return 'contacts';
   };
 
+  // 1. Initial Loading Splash
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#070d19] flex flex-col items-center justify-center space-y-4 font-sans text-slate-200">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-teak-600 to-amber-500 p-0.5 shadow-2xl flex items-center justify-center animate-pulse">
+          <div className="w-full h-full bg-[#080e1e] rounded-[14px] flex items-center justify-center p-3">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          </div>
+        </div>
+        <div className="flex items-center space-x-2.5 text-xs text-slate-400">
+          <Loader2 className="w-4 h-4 text-teak-400 animate-spin" />
+          <span>Starting Urban Furniture ERP Workspace...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated -> Show Login Page
+  if (!isAuthenticated) {
+    return (
+      <>
+        {toast && (
+          <div className="fixed top-5 right-5 z-50 glass-dropdown text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs border border-slate-700 animate-in fade-in slide-in-from-top-3 max-w-md">
+            {toast.type === 'error' ? (
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            )}
+            <span className="font-semibold">{toast.message}</span>
+          </div>
+        )}
+        <LoginPage />
+      </>
+    );
+  }
+
+  // 3. Authenticated -> Full ERP Layout
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Toast Notification Alert */}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAccounting } from '../context/AccountingContext';
+import React, { useState } from "react";
+import { useAccounting } from "../context/AccountingContext";
 import {
   Menu,
   Search,
@@ -18,14 +18,14 @@ import {
   CheckCircle2,
   CheckCheck,
   Database,
-  RefreshCw
-} from 'lucide-react';
+  RefreshCw,
+} from "lucide-react";
 
 const formatTimeAgo = (isoString) => {
-  if (!isoString) return 'Recently';
+  if (!isoString) return "Recently";
   const diffMs = Date.now() - new Date(isoString).getTime();
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'Just now';
+  if (diffSec < 60) return "Just now";
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffHr = Math.floor(diffMin / 60);
@@ -37,7 +37,7 @@ const formatTimeAgo = (isoString) => {
 export default function Navbar({
   onOpenNewInvoice,
   onOpenNewBill,
-  onOpenPaymentModal
+  onOpenPaymentModal,
 }) {
   const {
     setSidebarOpen,
@@ -54,7 +54,9 @@ export default function Navbar({
     clearNotifications,
     backendOnline,
     syncing,
-    refreshFromBackend
+    refreshFromBackend,
+    currentUser,
+    logout
   } = useAccounting();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -73,9 +75,15 @@ export default function Navbar({
         {/* Brand preview on mobile or header */}
         <div className="flex items-center space-x-2.5 lg:hidden">
           <div className="w-8 h-8 rounded-lg bg-white p-0.5 border border-teak-500/40">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain rounded" />
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="w-full h-full object-contain rounded"
+            />
           </div>
-          <span className="font-display font-bold text-white text-sm">Urban Furniture</span>
+          <span className="font-display font-bold text-white text-sm">
+            Urban Furniture
+          </span>
         </div>
 
         {/* Global Search Bar */}
@@ -96,19 +104,33 @@ export default function Navbar({
         <button
           onClick={() => refreshFromBackend()}
           disabled={syncing}
-          title={backendOnline ? 'Connected to Express & MySQL (Port 5000) - Click to re-sync' : 'Connecting to MySQL Backend - Click to retry'}
+          title={
+            backendOnline
+              ? "Connected to Express & MySQL (Port 5000) - Click to re-sync"
+              : "Connecting to MySQL Backend - Click to retry"
+          }
           className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono font-medium transition-all ${
             backendOnline
-              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:border-emerald-400'
-              : 'bg-amber-950/40 border-amber-500/40 text-amber-300 hover:border-amber-400'
+              ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:border-emerald-400"
+              : "bg-amber-950/40 border-amber-500/40 text-amber-300 hover:border-amber-400"
           }`}
         >
           <Database className="w-3.5 h-3.5" />
           <span className="flex items-center space-x-1">
-            <span className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-            <span>{syncing ? 'Syncing...' : backendOnline ? 'MySQL Live' : 'Connecting...'}</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${backendOnline ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`}
+            ></span>
+            <span>
+              {syncing
+                ? "Syncing..."
+                : backendOnline
+                  ? "MySQL Live"
+                  : "Connecting..."}
+            </span>
           </span>
-          <RefreshCw className={`w-3 h-3 ml-1 opacity-70 ${syncing ? 'animate-spin' : 'hover:opacity-100'}`} />
+          <RefreshCw
+            className={`w-3 h-3 ml-1 opacity-70 ${syncing ? "animate-spin" : "hover:opacity-100"}`}
+          />
         </button>
 
         {/* Demo Tour Button */}
@@ -121,7 +143,7 @@ export default function Navbar({
         </button>
 
         {/* Quick Action Button Dropdown */}
-        {userRole !== 'Contact' && (
+        {userRole !== "Contact" && (
           <div className="relative">
             <button
               onClick={() => setShowQuickMenu(!showQuickMenu)}
@@ -137,7 +159,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     setShowQuickMenu(false);
-                    setActiveTab('sales');
+                    setActiveTab("sales");
                     onOpenNewInvoice();
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-navy-900 text-slate-200 font-medium flex items-center space-x-2.5"
@@ -149,7 +171,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     setShowQuickMenu(false);
-                    setActiveTab('purchases');
+                    setActiveTab("purchases");
                     onOpenNewBill();
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-navy-900 text-slate-200 font-medium flex items-center space-x-2.5"
@@ -174,7 +196,7 @@ export default function Navbar({
                 <button
                   onClick={() => {
                     setShowQuickMenu(false);
-                    setActiveTab('budgets');
+                    setActiveTab("budgets");
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-navy-900 text-slate-200 font-medium flex items-center space-x-2.5"
                 >
@@ -196,7 +218,7 @@ export default function Navbar({
             <Bell className="w-4 h-4" />
             {unreadNotificationCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-extrabold text-slate-950 shadow-lg ring-2 ring-[#0b1329] animate-pulse">
-                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
               </span>
             )}
           </button>
@@ -206,7 +228,9 @@ export default function Navbar({
               <div className="flex items-center justify-between pb-2.5 border-b border-[#1e3e62]/40 mb-3">
                 <div className="flex items-center space-x-2">
                   <Bell className="w-4 h-4 text-teak-400" />
-                  <span className="font-bold text-xs text-slate-100 font-display">Notifications</span>
+                  <span className="font-bold text-xs text-slate-100 font-display">
+                    Notifications
+                  </span>
                   {unreadNotificationCount > 0 && (
                     <span className="text-[10px] text-emerald-400 bg-emerald-500/20 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 font-mono">
                       {unreadNotificationCount} Unread
@@ -240,25 +264,36 @@ export default function Navbar({
                   <div className="py-8 text-center text-slate-400 space-y-2">
                     <CheckCircle2 className="w-8 h-8 text-slate-600 mx-auto" />
                     <p className="text-xs font-medium">No notifications yet</p>
-                    <p className="text-[11px] text-slate-500">Creating a Sales Order or Customer Invoice will log live activity here.</p>
+                    <p className="text-[11px] text-slate-500">
+                      Creating a Sales Order or Customer Invoice will log live
+                      activity here.
+                    </p>
                   </div>
                 ) : (
                   notifications.map((notif) => {
                     let IconComponent = Bell;
-                    let iconBgClass = 'bg-teak-500/20 text-teak-300 border-teak-500/30';
+                    let iconBgClass =
+                      "bg-teak-500/20 text-teak-300 border-teak-500/30";
 
-                    if (notif.type === 'sales') {
+                    if (notif.type === "sales") {
                       IconComponent = TrendingUp;
-                      iconBgClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-                    } else if (notif.type === 'invoice') {
+                      iconBgClass =
+                        "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+                    } else if (notif.type === "invoice") {
                       IconComponent = Receipt;
-                      iconBgClass = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
-                    } else if (notif.type === 'purchase' || notif.type === 'bill') {
+                      iconBgClass =
+                        "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+                    } else if (
+                      notif.type === "purchase" ||
+                      notif.type === "bill"
+                    ) {
                       IconComponent = ShoppingCart;
-                      iconBgClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-                    } else if (notif.type === 'payment') {
+                      iconBgClass =
+                        "bg-amber-500/20 text-amber-400 border-amber-500/30";
+                    } else if (notif.type === "payment") {
                       IconComponent = CreditCard;
-                      iconBgClass = 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+                      iconBgClass =
+                        "bg-teal-500/20 text-teal-300 border-teal-500/30";
                     }
 
                     return (
@@ -267,22 +302,28 @@ export default function Navbar({
                         onClick={() => markNotificationAsRead(notif.id)}
                         className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start space-x-3 ${
                           notif.read
-                            ? 'bg-[#080e1e]/60 border-[#1e3e62]/20 opacity-75 hover:opacity-100'
-                            : 'bg-[#080e1e] border-teak-500/40 shadow-sm hover:border-teak-400'
+                            ? "bg-[#080e1e]/60 border-[#1e3e62]/20 opacity-75 hover:opacity-100"
+                            : "bg-[#080e1e] border-teak-500/40 shadow-sm hover:border-teak-400"
                         }`}
                       >
-                        <div className={`p-2 rounded-xl border shrink-0 ${iconBgClass}`}>
+                        <div
+                          className={`p-2 rounded-xl border shrink-0 ${iconBgClass}`}
+                        >
                           <IconComponent className="w-4 h-4" />
                         </div>
 
                         <div className="flex-1 min-w-0 space-y-0.5">
                           <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-[12px] text-slate-100 truncate">{notif.title}</h4>
+                            <h4 className="font-bold text-[12px] text-slate-100 truncate">
+                              {notif.title}
+                            </h4>
                             <span className="text-[10px] text-slate-500 shrink-0 ml-2">
                               {formatTimeAgo(notif.timestamp)}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-300 leading-snug">{notif.message}</p>
+                          <p className="text-[11px] text-slate-300 leading-snug">
+                            {notif.message}
+                          </p>
                         </div>
 
                         {!notif.read && (
@@ -308,21 +349,44 @@ export default function Navbar({
             onChange={(e) => {
               const role = e.target.value;
               setUserRole(role);
-              if (role === 'Contact') {
-                setActiveTab('portal');
-              } else if (activeTab === 'portal') {
-                setActiveTab('dashboard');
+              if (role === "Contact") {
+                setActiveTab("portal");
+              } else if (activeTab === "portal") {
+                setActiveTab("dashboard");
               }
             }}
             className="bg-transparent font-bold text-teak-300 focus:outline-none cursor-pointer text-xs"
           >
-            <option value="Admin" className="bg-[#080e1e] text-slate-100">Admin (Owner)</option>
-            <option value="Accountant" className="bg-[#080e1e] text-slate-100">Accountant</option>
-            <option value="Contact" className="bg-[#080e1e] text-slate-100">Contact (Customer / Vendor)</option>
+            <option value="Admin" className="bg-[#080e1e] text-slate-100">
+              Admin (Owner)
+            </option>
+            <option value="Accountant" className="bg-[#080e1e] text-slate-100">
+              Accountant
+            </option>
+            <option value="Contact" className="bg-[#080e1e] text-slate-100">
+              Contact (Customer / Vendor)
+            </option>
           </select>
+        </div>
+
+        {/* User Profile & Sign Out */}
+        <div className="flex items-center space-x-2 pl-1">
+          {currentUser && (
+            <div className="hidden xl:flex flex-col text-right leading-tight">
+              <span className="text-xs font-bold text-slate-200 truncate max-w-[120px]">{currentUser.name}</span>
+              <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{currentUser.email}</span>
+            </div>
+          )}
+
+          <button
+            onClick={logout}
+            title="Sign out of system"
+            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 border border-transparent hover:border-rose-500/30 rounded-xl transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>
   );
 }
-

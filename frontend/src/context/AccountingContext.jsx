@@ -26,6 +26,11 @@ export function AccountingProvider({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // Backend Live Status
   const [backendOnline, setBackendOnline] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -390,9 +395,87 @@ export function AccountingProvider({ children }) {
     await refreshFromBackend(newRole);
   }, [refreshFromBackend]);
 
-  // Sync on initial mount
+  // Auth Operations: Login & Logout
+  const login = async (email, password) => {
+    setAuthLoading(true);
+    try {
+      const res = await api.auth.login(email, password);
+      const user = res.data?.user;
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+
+      const roleStr = user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'Admin';
+      setUserRole(roleStr);
+      if (roleStr === 'Contact') {
+        setActiveTab('portal');
+        if (user.contact_id) {
+          setActiveContactId(`CNT-00${user.contact_id}`);
+        }
+      } else {
+        setActiveTab('dashboard');
+      }
+
+      showToast(`Welcome back, ${user?.name || 'User'}!`, 'success');
+      await refreshFromBackend(roleStr);
+      return { success: true, user };
+    } catch (err) {
+      showToast(err.message || 'Login failed. Please check your credentials.', 'error');
+      throw err;
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      // Ignore network errors on logout
+    } finally {
+      api.setToken('');
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      showToast('You have been signed out.', 'info');
+    }
+  };
+
+  // Restore Session on Initial Mount
   useEffect(() => {
-    refreshFromBackend();
+    const initAuthSession = async () => {
+      setAuthLoading(true);
+      const token = api.getToken();
+      if (token) {
+        try {
+          const meRes = await api.auth.me();
+          const user = meRes?.data;
+          if (user) {
+            setCurrentUser(user);
+            setIsAuthenticated(true);
+            const roleStr = user.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'Admin';
+            setUserRole(roleStr);
+            if (roleStr === 'Contact') {
+              setActiveTab('portal');
+              if (user.contact_id) {
+                setActiveContactId(`CNT-00${user.contact_id}`);
+              }
+            }
+            await refreshFromBackend(roleStr);
+          } else {
+            setIsAuthenticated(false);
+          }
+        } catch {
+          api.setToken('');
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    };
+
+    initAuthSession();
   }, [refreshFromBackend]);
 
   // -------------------------------------------------------------
@@ -985,6 +1068,13 @@ export function AccountingProvider({ children }) {
     setSearchQuery,
     toast,
     showToast,
+
+    // Authentication State & Actions
+    currentUser,
+    isAuthenticated,
+    authLoading,
+    login,
+    logout,
 
     // Backend Connectivity
     backendOnline,
