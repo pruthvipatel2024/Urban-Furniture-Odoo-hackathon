@@ -16,7 +16,9 @@ import {
   PieChart,
   Receipt,
   CheckCircle2,
-  CheckCheck
+  CheckCheck,
+  Database,
+  RefreshCw
 } from 'lucide-react';
 
 const formatTimeAgo = (isoString) => {
@@ -49,7 +51,10 @@ export default function Navbar({
     unreadNotificationCount,
     markNotificationAsRead,
     markAllNotificationsAsRead,
-    clearNotifications
+    clearNotifications,
+    backendOnline,
+    syncing,
+    refreshFromBackend
   } = useAccounting();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -87,6 +92,25 @@ export default function Navbar({
       </div>
 
       <div className="flex items-center space-x-3">
+        {/* Live Backend Connection Status Pill */}
+        <button
+          onClick={() => refreshFromBackend()}
+          disabled={syncing}
+          title={backendOnline ? 'Connected to Express & MySQL (Port 5000) - Click to re-sync' : 'Connecting to MySQL Backend - Click to retry'}
+          className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono font-medium transition-all ${
+            backendOnline
+              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:border-emerald-400'
+              : 'bg-amber-950/40 border-amber-500/40 text-amber-300 hover:border-amber-400'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5" />
+          <span className="flex items-center space-x-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+            <span>{syncing ? 'Syncing...' : backendOnline ? 'MySQL Live' : 'Connecting...'}</span>
+          </span>
+          <RefreshCw className={`w-3 h-3 ml-1 opacity-70 ${syncing ? 'animate-spin' : 'hover:opacity-100'}`} />
+        </button>
+
         {/* Demo Tour Button */}
         <button
           onClick={() => setShowDemoTourModal(true)}

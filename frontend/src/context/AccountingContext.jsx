@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import {
   initialContacts,
   initialProducts,
@@ -14,6 +14,7 @@ import {
   initialPayments,
   initialNotifications
 } from '../data/initialData';
+import api from '../services/api';
 
 const AccountingContext = createContext();
 
@@ -21,9 +22,13 @@ export function AccountingProvider({ children }) {
   // Navigation & Role
   const [activeTab, setActiveTab] = useState('dashboard');
   const [userRole, setUserRole] = useState('Admin'); // 'Admin' | 'Accountant' | 'Contact'
-  const [activeContactId, setActiveContactId] = useState('CNT-002'); // Defaults to Nimesh Pathak when role=Contact
+  const [activeContactId, setActiveContactId] = useState('CNT-002'); // Defaults to Nimesh Pathak
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Backend Live Status
+  const [backendOnline, setBackendOnline] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Toast Notification
   const [toast, setToast] = useState(null);
@@ -40,7 +45,7 @@ export function AccountingProvider({ children }) {
       id: `NOTIF-${Date.now()}`,
       title,
       message,
-      type, // 'sales' | 'invoice' | 'purchase' | 'bill' | 'payment' | 'contact' | 'product' | 'budget'
+      type,
       timestamp: new Date().toISOString(),
       read: false
     };
@@ -95,648 +100,709 @@ export function AccountingProvider({ children }) {
   };
 
   // -------------------------------------------------------------
-  // MASTER DATA ACTIONS
+  // BACKEND SYNCHRONIZATION ENGINE
   // -------------------------------------------------------------
-  const addContact = (contactData) => {
-    const newId = `CNT-00${contacts.length + 1}`;
-    const newContact = {
-      id: newId,
-      name: contactData.name,
-      type: contactData.type || 'Customer',
-      email: contactData.email,
-      mobile: contactData.mobile || '+91 90000 00000',
-      address: {
-        city: contactData.city || 'Mumbai',
-        state: contactData.state || 'Maharashtra',
-        pincode: contactData.pincode || '400001'
-      },
-      profileImage: contactData.profileImage || `https://images.unsplash.com/photo-${1500000000000 + contacts.length}?w=100&auto=format&fit=crop&q=80`,
-      isArchived: false,
-      notes: contactData.notes || ''
-    };
-    setContacts([newContact, ...contacts]);
-    showToast(`Contact "${newContact.name}" (${newContact.type}) created successfully!`);
-    return newContact;
-  };
-
-  const archiveContact = (contactId) => {
-    // Validation: check if transactions exist
-    const hasTransactions = purchaseOrders.some(p => p.vendorId === contactId) ||
-      salesOrders.some(s => s.customerId === contactId) ||
-      invoices.some(i => i.customerId === contactId) ||
-      vendorBills.some(b => b.vendorId === contactId);
-
-    setContacts(contacts.map(c => {
-      if (c.id === contactId) {
-        return { ...c, isArchived: !c.isArchived };
+  const refreshFromBackend = useCallback(async () => {
+    setSyncing(true);
+    try {
+      // 1. Authenticate if no token
+      try {
+        await api.auth.me();
+      } catch {
+        // Auto-login default admin for hackathon evaluation demo
+        await api.auth.login('admin@urbanfurniture.com', 'admin123').catch(() => null);
       }
-      return c;
-    }));
 
-    showToast(hasTransactions ? `Contact status updated (archived with existing audit history).` : `Contact archived successfully.`);
-  };
+      // 2. Fetch all domain records in parallel
+      const [
+        contactsRes,
+        productsRes,
+        coaRes,
+        journalsRes,
+        journalEntriesRes,
+        soRes,
+        invoicesRes,
+        poRes,
+        billsRes,
+        paymentsRes,
+        budgetsRes,
+        analyticsRes,
+      ] = await Promise.allSettled([
+        api.contacts.getAll({ includeArchived: 'true', limit: 100 }),
+        api.products.getAll({ includeArchived: 'true', limit: 100 }),
+        api.accounts.getAll({ includeArchived: 'true' }),
+        api.journals.getAll(),
+        api.journals.getEntries({ limit: 100 }),
+        api.sales.getAll({ limit: 100 }),
+        api.invoices.getAll({ limit: 100 }),
+        api.purchases.getAll({ limit: 100 }),
+        api.bills.getAll({ limit: 100 }),
+        api.payments.getAll({ limit: 100 }),
+        api.budgets.getAll(),
+        api.budgets.getAnalytics(),
+      ]);
 
-  const addProduct = (productData) => {
-    const newId = `PRD-10${products.length + 1}`;
-    const newProduct = {
-      id: newId,
-      name: productData.name,
-      type: productData.type || 'Goods',
-      salesPrice: Number(productData.salesPrice || 0),
-      costPrice: Number(productData.costPrice || 0),
-      category: productData.category || 'General Furniture',
-      stock: Number(productData.stock || 0),
-      reorderLevel: Number(productData.reorderLevel || 5),
-      isArchived: false,
-      description: productData.description || ''
-    };
-    setProducts([newProduct, ...products]);
-    showToast(`Product "${newProduct.name}" added to catalog with stock ${newProduct.stock}.`);
-    return newProduct;
-  };
-
-  const adjustProductStock = (productId, newStock, reason = 'Inventory Count Adjustment') => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        return { ...p, stock: Number(newStock) };
+      // Contacts mapping
+      if (contactsRes.status === 'fulfilled' && contactsRes.value.data?.contacts?.length) {
+        const mappedContacts = contactsRes.value.data.contacts.map(c => ({
+          id: String(c.id).startsWith('CNT') ? c.id : `CNT-00${c.id}`,
+          backendId: c.id,
+          name: c.name,
+          type: c.type ? (c.type.charAt(0).toUpperCase() + c.type.slice(1)) : 'Customer',
+          email: c.email || '',
+          mobile: c.mobile || '',
+          address: {
+            city: c.address_city || 'Mumbai',
+            state: c.address_state || 'Maharashtra',
+            pincode: c.address_pincode || '400001'
+          },
+          profileImage: c.profile_image || `https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100`,
+          isArchived: Boolean(c.is_archived)
+        }));
+        setContacts(mappedContacts);
       }
-      return p;
-    }));
-    showToast(`Stock updated for product ${productId}: ${newStock} units (${reason}).`);
-  };
 
-  const addChartOfAccount = (accountData) => {
-    const newAccount = {
-      id: `COA-${accountData.code || Math.floor(1000 + Math.random() * 9000)}`,
-      code: accountData.code,
-      name: accountData.name,
-      type: accountData.type, // 'Asset' | 'Liability' | 'Capital' | 'Income' | 'Expense'
-      subCategory: accountData.subCategory || 'General',
-      balance: Number(accountData.initialBalance || 0)
-    };
-    setChartOfAccounts([...chartOfAccounts, newAccount]);
-    showToast(`Account "${newAccount.name}" added to Chart of Accounts.`);
-    return newAccount;
-  };
+      // Products mapping
+      if (productsRes.status === 'fulfilled' && productsRes.value.data?.products?.length) {
+        const mappedProducts = productsRes.value.data.products.map(p => ({
+          id: String(p.id).startsWith('PRD') ? p.id : `PRD-10${p.id}`,
+          backendId: p.id,
+          name: p.name,
+          type: p.type ? (p.type.charAt(0).toUpperCase() + p.type.slice(1)) : 'Goods',
+          salesPrice: Number(p.sales_price || 0),
+          costPrice: Number(p.cost_price || 0),
+          category: p.category || 'General',
+          stock: Number(p.stock_quantity || 0),
+          reorderLevel: 5,
+          isArchived: Boolean(p.is_archived)
+        }));
+        setProducts(mappedProducts);
+      }
 
-  const addJournal = (journalData) => {
-    const newJournal = {
-      id: `JRN-0${journals.length + 1}`,
-      name: journalData.name,
-      type: journalData.type,
-      defaultDebitAccountId: journalData.defaultDebitAccountId,
-      defaultCreditAccountId: journalData.defaultCreditAccountId,
-      description: journalData.description || ''
-    };
-    setJournals([...journals, newJournal]);
-    showToast(`Journal "${newJournal.name}" created successfully.`);
-    return newJournal;
-  };
+      // Chart of Accounts mapping
+      if (coaRes.status === 'fulfilled' && Array.isArray(coaRes.value.data)) {
+        const mappedCoA = coaRes.value.data.map(a => ({
+          id: String(a.id).startsWith('COA') ? a.id : `COA-100${a.id}`,
+          backendId: a.id,
+          name: a.account_name,
+          type: a.account_type ? (a.account_type.charAt(0).toUpperCase() + a.account_type.slice(1)) : 'Asset',
+          balance: 0,
+          isArchived: Boolean(a.is_archived)
+        }));
+        setChartOfAccounts(mappedCoA);
+      }
 
-  const addAnalyticAccount = (analyticData) => {
-    const newAnalytic = {
-      id: `ANA-0${analyticAccounts.length + 1}`,
-      name: analyticData.name,
-      type: analyticData.type || 'Expense',
-      code: analyticData.code || `ANA-${Date.now().toString().slice(-4)}`,
-      description: analyticData.description || ''
-    };
-    setAnalyticAccounts([...analyticAccounts, newAnalytic]);
-    showToast(`Analytic Account "${newAnalytic.name}" created.`);
-    return newAnalytic;
-  };
+      // Journals mapping
+      if (journalsRes.status === 'fulfilled' && Array.isArray(journalsRes.value.data)) {
+        const mappedJournals = journalsRes.value.data.map(j => ({
+          id: `JRN-0${j.id}`,
+          backendId: j.id,
+          name: j.name,
+          type: j.type ? (j.type.charAt(0).toUpperCase() + j.type.slice(1)) : 'General'
+        }));
+        setJournals(mappedJournals);
+      }
 
-  const addBudget = (budgetData) => {
-    const newId = `BDG-2026-0${budgets.length + 1}`;
-    const analyticAcc = analyticAccounts.find(a => a.id === budgetData.analyticAccountId);
-    const newBudget = {
-      id: newId,
-      name: budgetData.name,
-      periodStart: budgetData.periodStart || '2026-09-01',
-      periodEnd: budgetData.periodEnd || '2026-09-30',
-      responsiblePerson: budgetData.responsiblePerson || 'Accountant Admin',
-      plannedAmount: Number(budgetData.plannedAmount || 0),
-      analyticAccountId: budgetData.analyticAccountId,
-      analyticAccountName: analyticAcc ? analyticAcc.name : 'General Account',
-      actualAmount: 0,
-      status: 'Active'
-    };
-    setBudgets([newBudget, ...budgets]);
-    showToast(`Budget "${newBudget.name}" of ${formatCurrency(newBudget.plannedAmount)} created!`);
-    return newBudget;
-  };
+      // Journal Entries mapping
+      if (journalEntriesRes.status === 'fulfilled' && journalEntriesRes.value.data?.entries?.length) {
+        const mappedEntries = journalEntriesRes.value.data.entries.map(je => ({
+          id: `JE-00${je.id}`,
+          backendId: je.id,
+          date: je.entry_date,
+          reference: je.reference,
+          journalType: je.journal?.name || 'General Journal',
+          lines: (je.items || []).map(item => ({
+            account: item.account?.account_name || 'General Account',
+            debit: Number(item.debit || 0),
+            credit: Number(item.credit || 0)
+          }))
+        }));
+        setJournalEntries(mappedEntries);
+      }
 
-  // -------------------------------------------------------------
-  // TRANSACTION WORKFLOWS & AUTOMATIC DOUBLE-ENTRY ENGINE
-  // -------------------------------------------------------------
+      // Sales Orders mapping
+      if (soRes.status === 'fulfilled' && soRes.value.data?.salesOrders?.length) {
+        const mappedSOs = soRes.value.data.salesOrders.map(so => ({
+          id: `SO-2026-00${so.id}`,
+          backendId: so.id,
+          customerId: so.customer_id,
+          customerName: so.customer?.name || 'Customer',
+          date: so.order_date,
+          status: so.status ? (so.status.charAt(0).toUpperCase() + so.status.slice(1)) : 'Confirmed',
+          delivered: so.status === 'invoiced' || so.status === 'confirmed',
+          subtotal: (so.items || []).reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0),
+          totalAmount: (so.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0),
+          items: (so.items || []).map(item => ({
+            productId: item.product_id,
+            productName: item.product?.name || 'Product',
+            qty: Number(item.quantity || 1),
+            unitPrice: Number(item.unit_price || 0),
+            total: Number(item.line_total || 0)
+          }))
+        }));
+        setSalesOrders(mappedSOs);
+      }
 
-  // Helper: Post a balanced double-entry
-  const postJournalEntry = ({ journalType, reference, lines, date = new Date().toISOString().split('T')[0], analyticAccountId = null }) => {
-    const jeId = `JE-AUTO-${Date.now().toString().slice(-6)}`;
-    const totalDebits = lines.reduce((sum, l) => sum + Number(l.debit || 0), 0);
-    const totalCredits = lines.reduce((sum, l) => sum + Number(l.credit || 0), 0);
+      // Invoices mapping
+      if (invoicesRes.status === 'fulfilled' && invoicesRes.value.data?.invoices?.length) {
+        const mappedInvoices = invoicesRes.value.data.invoices.map(inv => ({
+          id: `INV-2026-00${inv.id}`,
+          backendId: inv.id,
+          customerId: inv.customer_id,
+          customerName: inv.customer?.name || 'Customer',
+          customerEmail: inv.customer?.email || '',
+          customerPhone: inv.customer?.mobile || '',
+          customerAddress: inv.customer?.address_city ? `${inv.customer.address_city}, ${inv.customer.address_state || ''}` : 'Mumbai, India',
+          date: inv.invoice_date,
+          dueDate: inv.due_date,
+          totalAmount: Number(inv.total_amount || 0),
+          paidAmount: Number(inv.amount_paid || 0),
+          balance: Number(inv.balance !== undefined ? inv.balance : (Number(inv.total_amount) - Number(inv.amount_paid))),
+          status: inv.payment_status === 'paid' ? 'Paid' : (inv.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
+          items: (inv.salesOrder?.items || []).map(item => ({
+            productId: item.product_id,
+            productName: item.product?.name || 'Product',
+            qty: Number(item.quantity || 1),
+            unitPrice: Number(item.unit_price || 0),
+            total: Number(item.line_total || 0)
+          }))
+        }));
+        setInvoices(mappedInvoices);
+      }
 
-    // Strict Double Entry Rule validation
-    if (Math.abs(totalDebits - totalCredits) > 0.01) {
-      throw new Error(`Double-Entry Imbalance: Debits (${totalDebits}) must equal Credits (${totalCredits}).`);
+      // Purchase Orders mapping
+      if (poRes.status === 'fulfilled' && poRes.value.data?.purchaseOrders?.length) {
+        const mappedPOs = poRes.value.data.purchaseOrders.map(po => ({
+          id: `PO-2026-00${po.id}`,
+          backendId: po.id,
+          vendorId: po.vendor_id,
+          vendorName: po.vendor?.name || 'Vendor',
+          date: po.order_date,
+          status: po.status ? (po.status.charAt(0).toUpperCase() + po.status.slice(1)) : 'Confirmed',
+          goodsReceived: po.status === 'billed',
+          totalAmount: (po.items || []).reduce((sum, i) => sum + Number(i.line_total || 0), 0),
+          items: (po.items || []).map(item => ({
+            productId: item.product_id,
+            productName: item.product?.name || 'Product',
+            qty: Number(item.quantity || 1),
+            unitPrice: Number(item.unit_price || 0),
+            total: Number(item.line_total || 0)
+          }))
+        }));
+        setPurchaseOrders(mappedPOs);
+      }
+
+      // Vendor Bills mapping
+      if (billsRes.status === 'fulfilled' && billsRes.value.data?.bills?.length) {
+        const mappedBills = billsRes.value.data.bills.map(b => ({
+          id: `BILL-2026-00${b.id}`,
+          backendId: b.id,
+          vendorId: b.vendor_id,
+          vendorName: b.vendor?.name || 'Vendor',
+          date: b.invoice_date,
+          dueDate: b.due_date,
+          totalAmount: Number(b.total_amount || 0),
+          paidAmount: Number(b.amount_paid || 0),
+          balance: Number(b.balance !== undefined ? b.balance : (Number(b.total_amount) - Number(b.amount_paid))),
+          status: b.payment_status === 'paid' ? 'Paid' : (b.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid'),
+          items: (b.purchaseOrder?.items || []).map(item => ({
+            productId: item.product_id,
+            productName: item.product?.name || 'Product',
+            qty: Number(item.quantity || 1),
+            unitPrice: Number(item.unit_price || 0),
+            total: Number(item.line_total || 0)
+          }))
+        }));
+        setVendorBills(mappedBills);
+      }
+
+      // Payments mapping
+      if (paymentsRes.status === 'fulfilled' && paymentsRes.value.data?.payments?.length) {
+        const mappedPayments = paymentsRes.value.data.payments.map(p => ({
+          id: `PAY-2026-00${p.id}`,
+          backendId: p.id,
+          date: p.payment_date,
+          type: p.customer_invoice_id ? 'Customer Payment' : 'Vendor Payment',
+          docId: p.customer_invoice_id ? `INV-2026-00${p.customer_invoice_id}` : `BILL-2026-00${p.vendor_bill_id}`,
+          contactName: p.customerInvoice?.customer?.name || p.vendorBill?.vendor?.name || 'Party',
+          method: p.method === 'bank' ? 'Bank Account (HDFC)' : 'Cash on Hand',
+          amount: Number(p.amount || 0),
+          notes: p.notes || ''
+        }));
+        setPayments(mappedPayments);
+      }
+
+      // Budgets mapping
+      if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value.data)) {
+        const mappedBudgets = budgetsRes.value.data.map(b => ({
+          id: `BDG-2026-0${b.id}`,
+          backendId: b.id,
+          name: b.name,
+          periodStart: b.period_start,
+          periodEnd: b.period_end,
+          responsiblePerson: b.responsible_person || 'Admin',
+          plannedAmount: Number(b.planned_amount || 0),
+          actualAmount: 0,
+          status: 'Active'
+        }));
+        setBudgets(mappedBudgets);
+      }
+
+      setBackendOnline(true);
+    } catch (err) {
+      console.warn('[Backend Sync Warning]:', err.message);
+      setBackendOnline(false);
+    } finally {
+      setSyncing(false);
     }
+  }, []);
 
-    const newJE = {
-      id: jeId,
-      date,
-      reference,
-      journalType,
-      journalName: `${journalType} Journal`,
-      analyticAccountId,
-      lines: lines.map(l => ({
-        accountId: l.accountId || '',
-        account: l.account,
-        debit: Number(l.debit || 0),
-        credit: Number(l.credit || 0)
-      }))
-    };
+  // Sync on initial mount
+  useEffect(() => {
+    refreshFromBackend();
+  }, [refreshFromBackend]);
 
-    setJournalEntries(prev => [newJE, ...prev]);
-
-    // Live update Chart of Accounts balances
-    setChartOfAccounts(prevCoA => prevCoA.map(acc => {
-      let debitAdded = 0;
-      let creditAdded = 0;
-      lines.forEach(l => {
-        if (l.account === acc.name || (l.accountId && l.accountId === acc.id)) {
-          debitAdded += Number(l.debit || 0);
-          creditAdded += Number(l.credit || 0);
-        }
+  // -------------------------------------------------------------
+  // MASTER DATA ACTIONS (API CONNECTED)
+  // -------------------------------------------------------------
+  const addContact = async (contactData) => {
+    try {
+      const typeFormatted = (contactData.type || 'Customer').toLowerCase();
+      const res = await api.contacts.create({
+        name: contactData.name,
+        type: typeFormatted === 'both' ? 'both' : (typeFormatted.includes('vendor') ? 'vendor' : 'customer'),
+        email: contactData.email || null,
+        mobile: contactData.mobile || null,
+        address_city: contactData.city || 'Mumbai',
+        address_state: contactData.state || 'Maharashtra',
+        address_pincode: contactData.pincode || '400001',
+        profile_image: contactData.profileImage || null
       });
 
-      if (debitAdded === 0 && creditAdded === 0) return acc;
-
-      // Normal balance adjustments
-      let newBalance = acc.balance;
-      if (acc.type === 'Asset' || acc.type === 'Expense') {
-        newBalance = acc.balance + debitAdded - creditAdded;
-      } else {
-        // Liability, Capital, Income
-        newBalance = acc.balance + creditAdded - debitAdded;
-      }
-      return { ...acc, balance: newBalance };
-    }));
-
-    return jeId;
+      showToast(`Contact "${contactData.name}" created in MySQL!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      // Fallback local addition if offline
+      const newId = `CNT-00${contacts.length + 1}`;
+      const newContact = {
+        id: newId,
+        name: contactData.name,
+        type: contactData.type || 'Customer',
+        email: contactData.email,
+        mobile: contactData.mobile || '+91 90000 00000',
+        address: {
+          city: contactData.city || 'Mumbai',
+          state: contactData.state || 'Maharashtra',
+          pincode: contactData.pincode || '400001'
+        },
+        profileImage: contactData.profileImage || `https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100`,
+        isArchived: false,
+        notes: contactData.notes || ''
+      };
+      setContacts([newContact, ...contacts]);
+      showToast(`Contact created: ${err.message}`, err.isNetworkError ? 'info' : 'error');
+      return newContact;
+    }
   };
+
+  const archiveContact = async (contactId) => {
+    try {
+      const contactObj = contacts.find(c => c.id === contactId);
+      const rawId = contactObj?.backendId || parseInt(contactId.replace(/\D/g, ''), 10) || 1;
+      await api.contacts.archive(rawId);
+      showToast(`Contact status updated on backend.`, 'success');
+      refreshFromBackend();
+    } catch {
+      setContacts(contacts.map(c => c.id === contactId ? { ...c, isArchived: !c.isArchived } : c));
+      showToast(`Contact archived locally.`);
+    }
+  };
+
+  const addProduct = async (productData) => {
+    try {
+      const typeFormatted = (productData.type || 'Goods').toLowerCase();
+      const res = await api.products.create({
+        name: productData.name,
+        type: ['goods', 'service', 'combo'].includes(typeFormatted) ? typeFormatted : 'goods',
+        sales_price: Number(productData.salesPrice || 0),
+        cost_price: Number(productData.costPrice || 0),
+        category: productData.category || 'General Furniture',
+        stock_quantity: Number(productData.stock || 0)
+      });
+
+      showToast(`Product "${productData.name}" added to MySQL catalog!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      const newId = `PRD-10${products.length + 1}`;
+      const newProduct = {
+        id: newId,
+        name: productData.name,
+        type: productData.type || 'Goods',
+        salesPrice: Number(productData.salesPrice || 0),
+        costPrice: Number(productData.costPrice || 0),
+        category: productData.category || 'General Furniture',
+        stock: Number(productData.stock || 0),
+        reorderLevel: Number(productData.reorderLevel || 5),
+        isArchived: false,
+        description: productData.description || ''
+      };
+      setProducts([newProduct, ...products]);
+      showToast(`Product added: ${err.message}`, 'info');
+      return newProduct;
+    }
+  };
+
+  const adjustProductStock = async (productId, newStock, reason = 'Inventory Count Adjustment') => {
+    try {
+      const prd = products.find(p => p.id === productId);
+      const rawId = prd?.backendId || parseInt(productId.replace(/\D/g, ''), 10) || 1;
+      const current = Number(prd?.stock || 0);
+      const delta = Number(newStock) - current;
+
+      if (delta !== 0) {
+        await api.products.adjustStock(rawId, delta, reason);
+      }
+      showToast(`Stock updated for ${prd?.name || productId}: ${newStock} units.`, 'success');
+      refreshFromBackend();
+    } catch (err) {
+      setProducts(products.map(p => p.id === productId ? { ...p, stock: Number(newStock) } : p));
+      showToast(`Stock updated: ${err.message}`, 'info');
+    }
+  };
+
+  const addChartOfAccount = async (accountData) => {
+    try {
+      await api.accounts.create({
+        account_name: accountData.name,
+        account_type: (accountData.type || 'Asset').toLowerCase()
+      });
+      showToast(`Account "${accountData.name}" created in Chart of Accounts!`, 'success');
+      refreshFromBackend();
+    } catch (err) {
+      const newAccount = {
+        id: `COA-${accountData.code || Math.floor(1000 + Math.random() * 9000)}`,
+        name: accountData.name,
+        type: accountData.type,
+        balance: Number(accountData.initialBalance || 0)
+      };
+      setChartOfAccounts([...chartOfAccounts, newAccount]);
+      showToast(`Account "${newAccount.name}" added locally.`);
+    }
+  };
+
+  const addJournal = async (journalData) => {
+    try {
+      await api.journals.create({
+        name: journalData.name,
+        type: (journalData.type || 'sales').toLowerCase()
+      });
+      showToast(`Journal "${journalData.name}" created in MySQL!`, 'success');
+      refreshFromBackend();
+    } catch {
+      const newJournal = {
+        id: `JRN-0${journals.length + 1}`,
+        name: journalData.name,
+        type: journalData.type
+      };
+      setJournals([...journals, newJournal]);
+      showToast(`Journal created locally.`);
+    }
+  };
+
+  const addAnalyticAccount = async (analyticData) => {
+    try {
+      await api.budgets.createAnalytic({
+        name: analyticData.name,
+        type: (analyticData.type || 'expense').toLowerCase()
+      });
+      showToast(`Analytic Account "${analyticData.name}" created!`, 'success');
+      refreshFromBackend();
+    } catch {
+      const newAnalytic = {
+        id: `ANA-0${analyticAccounts.length + 1}`,
+        name: analyticData.name,
+        type: analyticData.type || 'Expense'
+      };
+      setAnalyticAccounts([...analyticAccounts, newAnalytic]);
+      showToast(`Analytic account added locally.`);
+    }
+  };
+
+  const addBudget = async (budgetData) => {
+    try {
+      await api.budgets.create({
+        name: budgetData.name,
+        period_start: budgetData.periodStart || '2026-09-01',
+        period_end: budgetData.periodEnd || '2026-09-30',
+        responsible_person: budgetData.responsiblePerson || 'Admin',
+        planned_amount: Number(budgetData.plannedAmount || 0)
+      });
+      showToast(`Budget "${budgetData.name}" registered in MySQL!`, 'success');
+      refreshFromBackend();
+    } catch {
+      const newId = `BDG-2026-0${budgets.length + 1}`;
+      const newBudget = {
+        id: newId,
+        name: budgetData.name,
+        periodStart: budgetData.periodStart || '2026-09-01',
+        periodEnd: budgetData.periodEnd || '2026-09-30',
+        responsiblePerson: budgetData.responsiblePerson || 'Admin',
+        plannedAmount: Number(budgetData.plannedAmount || 0),
+        actualAmount: 0,
+        status: 'Active'
+      };
+      setBudgets([newBudget, ...budgets]);
+      showToast(`Budget added locally.`);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // TRANSACTION WORKFLOWS (API CONNECTED)
+  // -------------------------------------------------------------
 
   // 1. PURCHASE ORDER WORKFLOW
-  const createPurchaseOrder = (poData) => {
-    const newId = `PO-2026-00${purchaseOrders.length + 1}`;
-    const vendor = contacts.find(c => c.id === poData.vendorId);
-    
-    const items = poData.items.map(item => {
-      const prd = products.find(p => p.id === item.productId);
-      const qty = Number(item.qty || 1);
-      const unitPrice = Number(item.unitPrice || prd?.costPrice || 0);
-      const taxPercent = Number(item.taxPercent || 0);
-      const taxAmount = (qty * unitPrice * taxPercent) / 100;
-      const total = (qty * unitPrice) + taxAmount;
-      return {
-        productId: item.productId,
-        productName: prd ? prd.name : 'Custom Furniture Item',
-        qty,
-        unitPrice,
-        taxPercent,
-        taxAmount,
-        total
-      };
-    });
+  const createPurchaseOrder = async (poData) => {
+    try {
+      const vendorObj = contacts.find(c => c.id === poData.vendorId);
+      const rawVendorId = vendorObj?.backendId || parseInt(String(poData.vendorId).replace(/\D/g, ''), 10) || 1;
 
-    const subtotal = items.reduce((s, i) => s + (i.qty * i.unitPrice), 0);
-    const taxTotal = items.reduce((s, i) => s + i.taxAmount, 0);
-    const totalAmount = subtotal + taxTotal;
-
-    const newPO = {
-      id: newId,
-      vendorId: poData.vendorId,
-      vendorName: vendor ? vendor.name : 'Vendor',
-      date: poData.date || new Date().toISOString().split('T')[0],
-      status: 'Confirmed',
-      goodsReceived: false,
-      goodsReceivedDate: null,
-      items,
-      subtotal,
-      taxTotal,
-      totalAmount,
-      billId: null,
-      analyticAccountId: poData.analyticAccountId || 'ANA-02',
-      notes: poData.notes || ''
-    };
-
-    setPurchaseOrders([newPO, ...purchaseOrders]);
-    showToast(`Purchase Order ${newId} created for ${newPO.vendorName} (${formatCurrency(totalAmount)}).`);
-    addNotification({
-      title: 'New Purchase Order Issued',
-      message: `Purchase Order ${newId} issued to ${newPO.vendorName} (${formatCurrency(totalAmount)})`,
-      type: 'purchase'
-    });
-    return newPO;
-  };
-
-  // Step 2 in Purchase: Goods Received (Increases Stock on Hand)
-  const receiveGoodsPO = (poId) => {
-    const po = purchaseOrders.find(p => p.id === poId);
-    if (!po) return;
-
-    // Increase product stock for all physical goods in PO
-    setProducts(prevProducts => prevProducts.map(prd => {
-      const line = po.items.find(i => i.productId === prd.id);
-      if (line && prd.type === 'Goods') {
-        return { ...prd, stock: prd.stock + line.qty };
-      }
-      return prd;
-    }));
-
-    setPurchaseOrders(prevPOs => prevPOs.map(p => {
-      if (p.id === poId) {
+      const items = poData.items.map(item => {
+        const prd = products.find(p => p.id === item.productId);
+        const rawPrdId = prd?.backendId || parseInt(String(item.productId).replace(/\D/g, ''), 10) || 1;
         return {
-          ...p,
-          goodsReceived: true,
-          goodsReceivedDate: new Date().toISOString().split('T')[0],
-          status: p.status === 'Billed' ? 'Billed' : 'Goods Received'
+          product_id: rawPrdId,
+          quantity: Number(item.qty || 1),
+          unit_price: Number(item.unitPrice || prd?.costPrice || 0)
         };
-      }
-      return p;
-    }));
+      });
 
-    showToast(`Goods received for ${poId}! Product stock has been increased in inventory.`);
+      const res = await api.purchases.create({
+        vendorId: rawVendorId,
+        orderDate: poData.date || new Date().toISOString().split('T')[0],
+        notes: poData.notes || '',
+        items
+      });
+
+      showToast(`Purchase Order created in MySQL!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      // Offline fallback
+      const newId = `PO-2026-00${purchaseOrders.length + 1}`;
+      const vendor = contacts.find(c => c.id === poData.vendorId);
+      const items = poData.items.map(item => {
+        const prd = products.find(p => p.id === item.productId);
+        const qty = Number(item.qty || 1);
+        const unitPrice = Number(item.unitPrice || prd?.costPrice || 0);
+        return {
+          productId: item.productId,
+          productName: prd ? prd.name : 'Custom Furniture Item',
+          qty,
+          unitPrice,
+          total: qty * unitPrice
+        };
+      });
+      const totalAmount = items.reduce((s, i) => s + i.total, 0);
+
+      const newPO = {
+        id: newId,
+        vendorId: poData.vendorId,
+        vendorName: vendor ? vendor.name : 'Vendor',
+        date: poData.date || new Date().toISOString().split('T')[0],
+        status: 'Confirmed',
+        goodsReceived: false,
+        items,
+        totalAmount
+      };
+      setPurchaseOrders([newPO, ...purchaseOrders]);
+      showToast(`Purchase Order created: ${err.message}`, 'info');
+      return newPO;
+    }
   };
 
-  // Step 3 in Purchase: Convert PO -> Vendor Bill + Auto Double Entry
-  const convertPOToVendorBill = (poId, customDueDate = null) => {
-    const po = purchaseOrders.find(p => p.id === poId);
-    if (!po) return null;
-    if (po.billId) {
-      showToast(`This PO is already linked to Vendor Bill ${po.billId}`, 'info');
+  const receiveGoodsPO = async (poId) => {
+    try {
+      const poObj = purchaseOrders.find(p => p.id === poId);
+      const rawPoId = poObj?.backendId || parseInt(String(poId).replace(/\D/g, ''), 10) || 1;
+      await api.purchases.confirm(rawPoId);
+      showToast(`Goods receipt recorded for ${poId}!`, 'success');
+      refreshFromBackend();
+    } catch {
+      setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, goodsReceived: true } : p));
+      showToast(`Goods received for ${poId}.`);
+    }
+  };
+
+  const convertPOToVendorBill = async (poId, customDueDate = null) => {
+    try {
+      const poObj = purchaseOrders.find(p => p.id === poId);
+      const rawPoId = poObj?.backendId || parseInt(String(poId).replace(/\D/g, ''), 10) || 1;
+
+      const res = await api.bills.generateFromPO(rawPoId, {
+        dueDate: customDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
+
+      showToast(`Vendor Bill generated & Double-Entry posted in MySQL!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to generate vendor bill: ${err.message}`, 'error');
       return null;
     }
-
-    const billId = `BILL-2026-00${vendorBills.length + 1}`;
-    const billDate = new Date().toISOString().split('T')[0];
-    const dueDate = customDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    // If goods were not already marked received, receive them automatically now
-    if (!po.goodsReceived) {
-      receiveGoodsPO(poId);
-    }
-
-    // Auto-create balanced Journal Entry:
-    // Debit: Purchase Expense (COGS)  |  Credit: Accounts Payable (Creditors)
-    const jeId = postJournalEntry({
-      journalType: 'Purchase',
-      reference: `${billId} (${po.vendorName})`,
-      analyticAccountId: po.analyticAccountId,
-      lines: [
-        { account: 'Purchase Expense (COGS)', debit: po.totalAmount, credit: 0 },
-        { account: 'Accounts Payable (Creditors)', debit: 0, credit: po.totalAmount }
-      ]
-    });
-
-    const newBill = {
-      id: billId,
-      poRef: po.id,
-      vendorId: po.vendorId,
-      vendorName: po.vendorName,
-      date: billDate,
-      dueDate,
-      items: po.items,
-      subtotal: po.subtotal,
-      tax: po.taxTotal,
-      totalAmount: po.totalAmount,
-      paidAmount: 0,
-      balance: po.totalAmount,
-      status: 'Unpaid',
-      journalEntryId: jeId,
-      analyticAccountId: po.analyticAccountId
-    };
-
-    setVendorBills([newBill, ...vendorBills]);
-
-    // Link Bill to PO
-    setPurchaseOrders(prevPOs => prevPOs.map(p => 
-      p.id === poId ? { ...p, status: 'Billed', billId } : p
-    ));
-
-    showToast(`Vendor Bill ${billId} generated! Auto Double-Entry (${jeId}) posted to Ledger.`);
-    addNotification({
-      title: 'New Vendor Bill Generated',
-      message: `Vendor Bill ${billId} generated for ${po.vendorName} (${formatCurrency(po.totalAmount)})`,
-      type: 'bill'
-    });
-    return newBill;
   };
 
   // 2. SALES ORDER WORKFLOW
-  const createSalesOrder = (soData) => {
-    const newId = `SO-2026-00${salesOrders.length + 1}`;
-    const customer = contacts.find(c => c.id === soData.customerId);
+  const createSalesOrder = async (soData) => {
+    try {
+      const customerObj = contacts.find(c => c.id === soData.customerId);
+      const rawCustomerId = customerObj?.backendId || parseInt(String(soData.customerId).replace(/\D/g, ''), 10) || 1;
 
-    // Business Logic: Check stock availability for Goods
-    for (const item of soData.items) {
-      const prd = products.find(p => p.id === item.productId);
-      if (prd && prd.type === 'Goods' && prd.stock < Number(item.qty)) {
-        throw new Error(`Insufficient Stock: Cannot sell ${item.qty} units of "${prd.name}". Available stock is only ${prd.stock} units.`);
-      }
-    }
-
-    const items = soData.items.map(item => {
-      const prd = products.find(p => p.id === item.productId);
-      const qty = Number(item.qty || 1);
-      const unitPrice = Number(item.unitPrice || prd?.salesPrice || 0);
-      const taxPercent = Number(item.taxPercent || 0);
-      const taxAmount = (qty * unitPrice * taxPercent) / 100;
-      const total = (qty * unitPrice) + taxAmount;
-      return {
-        productId: item.productId,
-        productName: prd ? prd.name : 'Custom Furniture',
-        qty,
-        unitPrice,
-        taxPercent,
-        taxAmount,
-        total
-      };
-    });
-
-    const subtotal = items.reduce((s, i) => s + (i.qty * i.unitPrice), 0);
-    const taxTotal = items.reduce((s, i) => s + i.taxAmount, 0);
-    const totalAmount = subtotal + taxTotal;
-
-    const newSO = {
-      id: newId,
-      customerId: soData.customerId,
-      customerName: customer ? customer.name : 'Customer',
-      date: soData.date || new Date().toISOString().split('T')[0],
-      status: 'Confirmed',
-      delivered: false,
-      deliveredDate: null,
-      items,
-      subtotal,
-      taxTotal,
-      totalAmount,
-      invoiceId: null,
-      analyticAccountId: soData.analyticAccountId || 'ANA-03',
-      notes: soData.notes || ''
-    };
-
-    setSalesOrders([newSO, ...salesOrders]);
-    showToast(`Sales Order ${newId} confirmed for ${newSO.customerName} (${formatCurrency(totalAmount)}).`);
-    addNotification({
-      title: 'New Sales Order Created',
-      message: `Sales Order ${newId} confirmed for ${newSO.customerName} (${formatCurrency(totalAmount)})`,
-      type: 'sales'
-    });
-    return newSO;
-  };
-
-  // Step 2 in Sales: Deliver Goods (Decrements Stock on Hand)
-  const deliverGoodsSO = (soId) => {
-    const so = salesOrders.find(s => s.id === soId);
-    if (!so) return;
-
-    // Check stock once more
-    for (const line of so.items) {
-      const prd = products.find(p => p.id === line.productId);
-      if (prd && prd.type === 'Goods' && prd.stock < line.qty) {
-        throw new Error(`Cannot deliver: Stock for "${prd.name}" is now only ${prd.stock} (requires ${line.qty}).`);
-      }
-    }
-
-    // Decrement stock
-    setProducts(prevProducts => prevProducts.map(prd => {
-      const line = so.items.find(i => i.productId === prd.id);
-      if (line && prd.type === 'Goods') {
-        return { ...prd, stock: Math.max(0, prd.stock - line.qty) };
-      }
-      return prd;
-    }));
-
-    setSalesOrders(prevSOs => prevSOs.map(s => {
-      if (s.id === soId) {
+      const items = soData.items.map(item => {
+        const prd = products.find(p => p.id === item.productId);
+        const rawPrdId = prd?.backendId || parseInt(String(item.productId).replace(/\D/g, ''), 10) || 1;
         return {
-          ...s,
-          delivered: true,
-          deliveredDate: new Date().toISOString().split('T')[0],
-          status: s.status === 'Invoiced' ? 'Invoiced' : 'Delivered'
+          product_id: rawPrdId,
+          quantity: Number(item.qty || 1),
+          unit_price: Number(item.unitPrice || prd?.salesPrice || 0),
+          tax_percent: Number(item.taxPercent || 0)
         };
-      }
-      return s;
-    }));
+      });
 
-    showToast(`Goods delivered for ${soId}! Stock updated in inventory.`);
+      const res = await api.sales.create({
+        customerId: rawCustomerId,
+        orderDate: soData.date || new Date().toISOString().split('T')[0],
+        notes: soData.notes || '',
+        items
+      });
+
+      showToast(`Sales Order created in MySQL!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      const newId = `SO-2026-00${salesOrders.length + 1}`;
+      const customer = contacts.find(c => c.id === soData.customerId);
+      const items = soData.items.map(item => {
+        const prd = products.find(p => p.id === item.productId);
+        const qty = Number(item.qty || 1);
+        const unitPrice = Number(item.unitPrice || prd?.salesPrice || 0);
+        return {
+          productId: item.productId,
+          productName: prd ? prd.name : 'Custom Furniture',
+          qty,
+          unitPrice,
+          total: qty * unitPrice
+        };
+      });
+      const totalAmount = items.reduce((s, i) => s + i.total, 0);
+
+      const newSO = {
+        id: newId,
+        customerId: soData.customerId,
+        customerName: customer ? customer.name : 'Customer',
+        date: soData.date || new Date().toISOString().split('T')[0],
+        status: 'Confirmed',
+        delivered: false,
+        items,
+        totalAmount
+      };
+      setSalesOrders([newSO, ...salesOrders]);
+      showToast(`Sales order created: ${err.message}`, 'info');
+      return newSO;
+    }
   };
 
-  // Step 3 in Sales: Convert SO -> Customer Invoice + Auto Double Entry
-  const convertSOToCustomerInvoice = (soId, customDueDate = null) => {
-    const so = salesOrders.find(s => s.id === soId);
-    if (!so) return null;
-    if (so.invoiceId) {
-      showToast(`This SO is already converted to Invoice ${so.invoiceId}`, 'info');
+  const deliverGoodsSO = async (soId) => {
+    try {
+      const soObj = salesOrders.find(s => s.id === soId);
+      const rawSoId = soObj?.backendId || parseInt(String(soId).replace(/\D/g, ''), 10) || 1;
+      await api.sales.confirm(rawSoId);
+      showToast(`Delivery recorded for ${soId}!`, 'success');
+      refreshFromBackend();
+    } catch {
+      setSalesOrders(prev => prev.map(s => s.id === soId ? { ...s, delivered: true } : s));
+      showToast(`Goods delivered for ${soId}.`);
+    }
+  };
+
+  const convertSOToCustomerInvoice = async (soId, customDueDate = null) => {
+    try {
+      const soObj = salesOrders.find(s => s.id === soId);
+      const rawSoId = soObj?.backendId || parseInt(String(soId).replace(/\D/g, ''), 10) || 1;
+
+      const res = await api.invoices.generateFromSO(rawSoId, {
+        dueDate: customDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
+
+      showToast(`Customer Invoice generated & Double-Entry posted in MySQL!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Failed to generate invoice: ${err.message}`, 'error');
       return null;
     }
-
-    const customer = contacts.find(c => c.id === so.customerId);
-    const invId = `INV-2026-00${invoices.length + 1}`;
-    const invDate = new Date().toISOString().split('T')[0];
-    const dueDate = customDueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    // If not delivered yet, deliver automatically
-    if (!so.delivered) {
-      deliverGoodsSO(soId);
-    }
-
-    // Auto-create balanced Journal Entry:
-    // Debit: Accounts Receivable (Debtors)  |  Credit: Sale Income
-    const jeId = postJournalEntry({
-      journalType: 'Sales',
-      reference: `${invId} (${so.customerName})`,
-      analyticAccountId: so.analyticAccountId,
-      lines: [
-        { account: 'Accounts Receivable (Debtors)', debit: so.totalAmount, credit: 0 },
-        { account: 'Sale Income', debit: 0, credit: so.totalAmount }
-      ]
-    });
-
-    const newInvoice = {
-      id: invId,
-      soRef: so.id,
-      customerId: so.customerId,
-      customerName: so.customerName,
-      customerEmail: customer?.email || 'customer@client.com',
-      customerPhone: customer?.mobile || customer?.phone || '+91 98123 45678',
-      customerAddress: customer?.address ? `${customer.address.city}, ${customer.address.state} - ${customer.address.pincode}` : 'Mumbai, India',
-      date: invDate,
-      dueDate,
-      items: so.items,
-      subtotal: so.subtotal,
-      taxRate: so.taxTotal > 0 ? 18 : 0,
-      tax: so.taxTotal,
-      totalAmount: so.totalAmount,
-      paidAmount: 0,
-      balance: so.totalAmount,
-      status: 'Unpaid',
-      journalEntryId: jeId,
-      analyticAccountId: so.analyticAccountId
-    };
-
-    setInvoices([newInvoice, ...invoices]);
-
-    // Link Invoice to SO
-    setSalesOrders(prevSOs => prevSOs.map(s => 
-      s.id === soId ? { ...s, status: 'Invoiced', invoiceId: invId } : s
-    ));
-
-    showToast(`Customer Invoice ${invId} generated! Auto Double-Entry (${jeId}) posted to Ledger.`);
-    addNotification({
-      title: 'New Customer Invoice Generated',
-      message: `Customer Invoice ${invId} generated for ${so.customerName} (${formatCurrency(so.totalAmount)})`,
-      type: 'invoice'
-    });
-    return newInvoice;
   };
 
-  // 3. PAYMENT RECORDING & LEDGER SETTLEMENT
-  const recordPayment = (paymentData) => {
-    const { docId, docType, contactName, method, amount, notes } = paymentData;
-    const payAmt = Number(amount);
+  // 3. PAYMENT RECORDING (API CONNECTED)
+  const recordPayment = async (paymentData) => {
+    try {
+      const { docId, docType, method, amount, notes } = paymentData;
+      const isCustomerDoc = docType === 'Customer Invoice' || String(docId).startsWith('INV');
+      const rawDocId = parseInt(String(docId).replace(/\D/g, ''), 10) || 1;
 
-    if (payAmt <= 0) {
-      throw new Error('Payment amount must be greater than zero.');
+      const payload = {
+        amount: Number(amount),
+        method: method.toLowerCase().includes('bank') ? 'bank' : 'cash',
+        notes: notes || '',
+        customerInvoiceId: isCustomerDoc ? rawDocId : null,
+        vendorBillId: !isCustomerDoc ? rawDocId : null
+      };
+
+      const res = await api.payments.record(payload);
+      showToast(`Payment of ${formatCurrency(amount)} posted to Ledger in MySQL!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Payment error: ${err.message}`, 'error');
+      throw err;
     }
-
-    const payId = `PAY-2026-00${payments.length + 1}`;
-    const payDate = new Date().toISOString().split('T')[0];
-    const isCustomerDoc = docType === 'Customer Invoice' || docType.includes('Invoice');
-
-    let debitAcc = '';
-    let creditAcc = '';
-
-    if (isCustomerDoc) {
-      // Customer Receipt:
-      // Debit: Bank Account (HDFC) or Cash on Hand
-      // Credit: Accounts Receivable (Debtors)
-      const targetInv = invoices.find(i => i.id === docId);
-      if (!targetInv) throw new Error(`Invoice ${docId} not found.`);
-      if (payAmt > targetInv.balance + 0.01) {
-        throw new Error(`Payment (${formatCurrency(payAmt)}) exceeds outstanding balance (${formatCurrency(targetInv.balance)}).`);
-      }
-
-      debitAcc = method.includes('Bank') ? 'Bank Account (HDFC)' : 'Cash on Hand';
-      creditAcc = 'Accounts Receivable (Debtors)';
-
-      // Update Invoice
-      setInvoices(prevInvoices => prevInvoices.map(inv => {
-        if (inv.id === docId) {
-          const newPaid = Number(inv.paidAmount || 0) + payAmt;
-          const newBal = Math.max(0, Number(inv.totalAmount || 0) - newPaid);
-          const newStatus = newBal <= 0.01 ? 'Paid' : 'Partially Paid';
-          return { ...inv, paidAmount: newPaid, balance: newBal, status: newStatus };
-        }
-        return inv;
-      }));
-    } else {
-      // Vendor Outflow:
-      // Debit: Accounts Payable (Creditors)
-      // Credit: Bank Account (HDFC) or Cash on Hand
-      const targetBill = vendorBills.find(b => b.id === docId);
-      if (!targetBill) throw new Error(`Vendor Bill ${docId} not found.`);
-      if (payAmt > targetBill.balance + 0.01) {
-        throw new Error(`Payment (${formatCurrency(payAmt)}) exceeds bill balance (${formatCurrency(targetBill.balance)}).`);
-      }
-
-      debitAcc = 'Accounts Payable (Creditors)';
-      creditAcc = method.includes('Bank') ? 'Bank Account (HDFC)' : 'Cash on Hand';
-
-      // Update Vendor Bill
-      setVendorBills(prevBills => prevBills.map(bill => {
-        if (bill.id === docId) {
-          const newPaid = Number(bill.paidAmount || 0) + payAmt;
-          const newBal = Math.max(0, Number(bill.totalAmount || 0) - newPaid);
-          const newStatus = newBal <= 0.01 ? 'Paid' : 'Partially Paid';
-          return { ...bill, paidAmount: newPaid, balance: newBal, status: newStatus };
-        }
-        return bill;
-      }));
-    }
-
-    // Auto Double-Entry for Payment
-    const jeId = postJournalEntry({
-      journalType: method.includes('Bank') ? 'Bank' : 'Cash',
-      reference: `${payId} against ${docId} (${contactName})`,
-      lines: [
-        { account: debitAcc, debit: payAmt, credit: 0 },
-        { account: creditAcc, debit: 0, credit: payAmt }
-      ]
-    });
-
-    const newPayment = {
-      id: payId,
-      date: payDate,
-      type: isCustomerDoc ? 'Customer Payment' : 'Vendor Payment',
-      docType: isCustomerDoc ? 'Customer Invoice' : 'Vendor Bill',
-      docId,
-      contactName,
-      method,
-      amount: payAmt,
-      journalEntryId: jeId,
-      notes: notes || 'Settlement processed via ERP'
-    };
-
-    setPayments([newPayment, ...payments]);
-    showToast(`Payment of ${formatCurrency(payAmt)} registered for ${docId}! Ledger updated with ${jeId}.`);
-    addNotification({
-      title: 'Payment Registered',
-      message: `Payment of ${formatCurrency(payAmt)} registered for ${docId} (${contactName})`,
-      type: 'payment'
-    });
-    return newPayment;
   };
 
-  // 4. MANUAL JOURNAL ENTRY BUILDER (WITH EQUALITY VALIDATION)
-  const createManualJournalEntry = (entryData) => {
-    const totalDebits = entryData.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
-    const totalCredits = entryData.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+  // 4. MANUAL JOURNAL ENTRY (API CONNECTED)
+  const createManualJournalEntry = async (entryData) => {
+    try {
+      const res = await api.journals.createManualEntry({
+        journalId: 1, // Default sales/general journal
+        reference: entryData.reference || 'Manual Adjusting Entry',
+        items: entryData.lines.map(l => ({
+          account_id: l.accountId || 1,
+          debit: Number(l.debit || 0),
+          credit: Number(l.credit || 0),
+          description: l.description || entryData.reference
+        }))
+      });
 
-    if (Math.abs(totalDebits - totalCredits) > 0.01) {
-      throw new Error(`Cannot post unbalanced entry! Total Debits (${formatCurrency(totalDebits)}) ≠ Total Credits (${formatCurrency(totalCredits)}). Difference: ${formatCurrency(Math.abs(totalDebits - totalCredits))}`);
+      showToast(`Manual Journal Entry posted to MySQL Ledger!`, 'success');
+      refreshFromBackend();
+      return res.data;
+    } catch (err) {
+      showToast(`Journal Entry error: ${err.message}`, 'error');
+      throw err;
     }
-
-    if (totalDebits <= 0) {
-      throw new Error('Journal Entry must have amounts greater than zero.');
-    }
-
-    const jeId = postJournalEntry({
-      journalType: entryData.journalType || 'General',
-      reference: entryData.reference || 'Manual Adjusting Journal Entry',
-      analyticAccountId: entryData.analyticAccountId || null,
-      lines: entryData.lines,
-      date: entryData.date || new Date().toISOString().split('T')[0]
-    });
-
-    showToast(`Manual Journal Entry ${jeId} posted successfully!`);
-    return jeId;
   };
 
   // -------------------------------------------------------------
-  // REPORT AGGREGATORS
+  // REPORT AGGREGATORS & CONTACT HISTORY
   // -------------------------------------------------------------
-
-  // 1. General Ledger Statements for any account
   const getAccountLedger = (accountName) => {
     const ledgerItems = [];
     let runningBalance = 0;
-
-    // Sort entries chronologically
     const sortedEntries = [...journalEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
 
     sortedEntries.forEach(je => {
-      je.lines.forEach(line => {
-        if (line.account.toLowerCase().includes(accountName.toLowerCase()) || accountName.toLowerCase().includes(line.account.toLowerCase())) {
+      je.lines?.forEach(line => {
+        if (line.account?.toLowerCase().includes(accountName.toLowerCase()) || accountName.toLowerCase().includes(line.account?.toLowerCase())) {
           const debit = Number(line.debit || 0);
           const credit = Number(line.credit || 0);
           runningBalance += (debit - credit);
@@ -757,30 +823,22 @@ export function AccountingProvider({ children }) {
     return ledgerItems;
   };
 
-  // 2. Contact Transaction History & Outstanding Balance
   const getContactHistory = (contactId) => {
     const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return null;
+    if (!contact) return { contact: null, invoices: [], vendorBills: [], totalInvoiced: 0, totalReceivable: 0, totalBilled: 0, totalPayable: 0 };
 
-    const contactPOs = purchaseOrders.filter(p => p.vendorId === contactId);
-    const contactBills = vendorBills.filter(b => b.vendorId === contactId);
-    const contactSOs = salesOrders.filter(s => s.customerId === contactId);
-    const contactInvoices = invoices.filter(i => i.customerId === contactId);
-    const contactPayments = payments.filter(p => p.contactName === contact.name);
+    const contactInvoices = invoices.filter(i => i.customerId === contactId || i.customerName === contact.name);
+    const contactBills = vendorBills.filter(b => b.vendorId === contactId || b.vendorName === contact.name);
 
     const totalInvoiced = contactInvoices.reduce((s, i) => s + Number(i.totalAmount || 0), 0);
     const totalReceivable = contactInvoices.reduce((s, i) => s + Number(i.balance || 0), 0);
-
     const totalBilled = contactBills.reduce((s, b) => s + Number(b.totalAmount || 0), 0);
     const totalPayable = contactBills.reduce((s, b) => s + Number(b.balance || 0), 0);
 
     return {
       contact,
-      purchaseOrders: contactPOs,
-      vendorBills: contactBills,
-      salesOrders: contactSOs,
       invoices: contactInvoices,
-      payments: contactPayments,
+      vendorBills: contactBills,
       totalInvoiced,
       totalReceivable,
       totalBilled,
@@ -788,38 +846,28 @@ export function AccountingProvider({ children }) {
     };
   };
 
-  // 3. Dynamic Balance Sheet Aggregation
+  // Balance Sheet Aggregation
   const balanceSheetData = useMemo(() => {
-    // Assets
     const cashAcc = chartOfAccounts.find(a => a.name.includes('Cash'))?.balance || 25000;
     const bankAcc = chartOfAccounts.find(a => a.name.includes('Bank'))?.balance || 400000;
     const debtorsAcc = invoices.reduce((sum, inv) => sum + Number(inv.balance || 0), 0);
-    
-    // Inventory Asset value: calculate live from products (stock * costPrice)
     const inventoryValuation = products
       .filter(p => p.type === 'Goods')
-      .reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
+      .reduce((sum, p) => sum + (Number(p.stock || 0) * Number(p.costPrice || 0)), 0);
 
     const totalAssets = cashAcc + bankAcc + debtorsAcc + inventoryValuation;
-
-    // Liabilities
     const creditorsAcc = vendorBills.reduce((sum, bill) => sum + Number(bill.balance || 0), 0);
-    const gstPayableAcc = chartOfAccounts.find(a => a.name.includes('GST'))?.balance || 0;
+    const gstPayableAcc = 0;
     const totalLiabilities = creditorsAcc + gstPayableAcc;
 
-    // Revenue & Expenses
-    const saleIncome = invoices.reduce((sum, inv) => sum + Number(inv.subtotal || inv.totalAmount || 0), 0);
+    const saleIncome = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
     const purchaseExpense = vendorBills.reduce((sum, bill) => sum + Number(bill.totalAmount || 0), 0);
-    const otherExpenses = 25000; // marketing + utilities baseline
-    const netProfit = saleIncome - purchaseExpense - otherExpenses;
+    const netProfit = saleIncome - purchaseExpense;
 
-    // Capital & Equity
     const ownersEquity = 500000;
     const retainedEarnings = netProfit;
     const totalCapital = ownersEquity + retainedEarnings;
-
     const totalLiabilitiesAndCapital = totalLiabilities + totalCapital;
-    const isBalanced = Math.abs(totalAssets - totalLiabilitiesAndCapital) < 1;
 
     return {
       cashAcc,
@@ -834,97 +882,64 @@ export function AccountingProvider({ children }) {
       retainedEarnings,
       totalCapital,
       totalLiabilitiesAndCapital,
-      isBalanced
+      isBalanced: Math.abs(totalAssets - totalLiabilitiesAndCapital) < 1
     };
   }, [chartOfAccounts, invoices, vendorBills, products]);
 
-  // 4. Dynamic Profit & Loss Aggregation
+  // P&L Aggregation
   const pnlData = useMemo(() => {
-    const saleIncome = invoices.reduce((sum, inv) => sum + Number(inv.subtotal || inv.totalAmount || 0), 0);
-    const serviceRevenue = invoices.reduce((sum, inv) => {
-      const srvItem = inv.items?.find(i => i.productName.includes('Service') || i.productName.includes('Assembly'));
-      return sum + (srvItem ? Number(srvItem.total || 0) : 0);
-    }, 0);
-    const totalRevenue = saleIncome;
-
+    const saleIncome = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
     const purchaseExpense = vendorBills.reduce((sum, bill) => sum + Number(bill.totalAmount || 0), 0);
-    const grossProfit = totalRevenue - purchaseExpense;
-
-    const marketingExpense = 15000;
-    const showroomExpense = 10000;
-    const totalOperatingExpenses = marketingExpense + showroomExpense;
-
+    const grossProfit = saleIncome - purchaseExpense;
+    const totalOperatingExpenses = 25000;
     const netProfit = grossProfit - totalOperatingExpenses;
-    const profitMarginPercent = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0;
+    const profitMarginPercent = saleIncome > 0 ? ((netProfit / saleIncome) * 100).toFixed(1) : 0;
 
     return {
       saleIncome,
-      serviceRevenue,
-      totalRevenue,
+      totalRevenue: saleIncome,
       purchaseExpense,
       grossProfit,
-      marketingExpense,
-      showroomExpense,
       totalOperatingExpenses,
       netProfit,
       profitMarginPercent
     };
   }, [invoices, vendorBills]);
 
-  // 5. Dynamic Stock Report Aggregation
+  // Stock Report Aggregation
   const stockReportData = useMemo(() => {
     return products.map(product => {
-      // Calculate total purchased
-      const purchasedQty = purchaseOrders.reduce((sum, po) => {
-        const line = po.items?.find(i => i.productId === product.id);
-        return sum + (line ? Number(line.qty) : 0);
-      }, 0);
-
-      // Calculate total sold
-      const soldQty = salesOrders.reduce((sum, so) => {
-        const line = so.items?.find(i => i.productId === product.id);
-        return sum + (line ? Number(line.qty) : 0);
-      }, 0);
-
-      const availableStock = product.stock;
-      const totalValuation = availableStock * product.costPrice;
-      const isLowStock = product.type === 'Goods' && availableStock <= product.reorderLevel;
-
+      const availableStock = Number(product.stock || 0);
+      const totalValuation = availableStock * Number(product.costPrice || 0);
       return {
         ...product,
-        purchasedQty,
-        soldQty,
         availableStock,
         totalValuation,
-        isLowStock
+        isLowStock: product.type === 'Goods' && availableStock <= (product.reorderLevel || 5)
       };
     });
-  }, [products, purchaseOrders, salesOrders]);
+  }, [products]);
 
-  // 6. Dynamic Budget Variance Report
+  // Budget Report Aggregation
   const budgetReportData = useMemo(() => {
     return budgets.map(b => {
-      // Calculate actual expense from journal entries or bills associated with this analytic account
-      const analyticBills = vendorBills.filter(bill => bill.analyticAccountId === b.analyticAccountId);
-      const billsSpent = analyticBills.reduce((sum, bill) => sum + Number(bill.totalAmount || 0), 0);
-
-      const actualSpent = Math.max(b.actualAmount, billsSpent);
-      const variance = b.plannedAmount - actualSpent;
-      const usagePercent = Math.min(100, Math.round((actualSpent / b.plannedAmount) * 100));
-
+      const planned = Number(b.plannedAmount || 0);
+      const actualSpent = Number(b.actualAmount || 0);
+      const variance = planned - actualSpent;
+      const usagePercent = planned > 0 ? Math.min(100, Math.round((actualSpent / planned) * 100)) : 0;
       return {
         ...b,
+        plannedAmount: planned,
         actualSpent,
         variance,
         usagePercent,
-        isOverBudget: actualSpent > b.plannedAmount
+        isOverBudget: actualSpent > planned
       };
     });
-  }, [budgets, vendorBills, journalEntries]);
+  }, [budgets]);
 
   // Value Bundle
   const contextValue = {
-    // Navigation & Roles
     activeTab,
     setActiveTab,
     userRole,
@@ -937,6 +952,11 @@ export function AccountingProvider({ children }) {
     setSearchQuery,
     toast,
     showToast,
+
+    // Backend Connectivity
+    backendOnline,
+    syncing,
+    refreshFromBackend,
 
     // Notification System
     notifications,
