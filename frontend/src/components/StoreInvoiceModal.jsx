@@ -136,6 +136,18 @@ export default function StoreInvoiceModal({ invoice, onClose, formatCurrency }) 
                   </td>
                 </tr>
               )}
+
+              {/* TWO BLANK LINES UNDER PURCHASED PRODUCTS */}
+              <tr className="h-8">
+                <td className="border-r border-slate-200">&nbsp;</td>
+                <td className="border-r border-slate-200">&nbsp;</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr className="h-8">
+                <td className="border-r border-slate-200">&nbsp;</td>
+                <td className="border-r border-slate-200">&nbsp;</td>
+                <td>&nbsp;</td>
+              </tr>
             </tbody>
 
             {/* CONNECTED SUMMARY FOOTER */}
