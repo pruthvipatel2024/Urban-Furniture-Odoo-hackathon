@@ -19,6 +19,7 @@ import {
   CheckCheck,
   Database,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 
 const formatTimeAgo = (isoString) => {
