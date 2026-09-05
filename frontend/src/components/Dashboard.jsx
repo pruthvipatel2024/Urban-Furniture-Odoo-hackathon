@@ -82,16 +82,15 @@ export default function Dashboard({
             </div>
           </div>
 
-          {/* Subtitle Slogan - Full Width 3 Clean Lines */}
-          <div className="space-y-4 pt-1">
-            <div className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-              <span className="block">Automated double-entry bookkeeping engine</span>
-              <span className="block text-slate-200">Seamlessly connecting Master Data, Purchases, Sales, Invoices & Payments</span>
-              <span className="block text-slate-300 font-normal">Integrated with Inventory Stock, Budgets, and Real-Time Financial Statements.</span>
-            </div>
+          {/* Subtitle (2 Lines) + Cleanly Aligned Buttons Below */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+              Automated double-entry bookkeeping connecting Master Data, Purchases, Sales,<br className="hidden sm:inline" />
+              Invoices, Payments, Inventory Stock, Budgets, and Real-Time Financial Statements.
+            </p>
 
-            {/* Quick Action Buttons Row Below Slogan */}
-            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800/60">
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
               <button
                 onClick={() => setShowDemoTourModal(true)}
                 className="flex items-center space-x-2 bg-gradient-to-r from-teak-500 to-teak-600 hover:from-teak-400 hover:to-teak-500 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-teak-500/20 active:scale-95"
