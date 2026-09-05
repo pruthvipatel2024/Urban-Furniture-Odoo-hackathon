@@ -98,9 +98,9 @@ export const api = {
   setToken: (token) => ApiClient.setToken(token),
 
   // System Health
-  health: {
+  health: Object.assign(() => ApiClient.get('/health'), {
     check: () => ApiClient.get('/health'),
-  },
+  }),
 
   // Auth
   auth: {

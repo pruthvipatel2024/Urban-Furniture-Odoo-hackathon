@@ -6,6 +6,8 @@ const {
   Product,
   ChartOfAccount,
   Journal,
+  JournalEntry,
+  JournalItem,
   AnalyticAccount,
   Budget,
 } = require('../models');
@@ -203,6 +205,57 @@ async function seedDatabase() {
         analytic_account_id: marketingAnalytic.id,
       },
     });
+
+    // 7. Seed Initial Capital & Liquidity Entry if not present
+    const existingCapitalEntry = await JournalEntry.findOne({
+      where: { reference: 'OPENING_BALANCE_FY26' },
+    });
+
+    const bankJournal = await Journal.findOne({ where: { type: 'bank' } });
+    const cashAcc = coaMap['Cash'] || await ChartOfAccount.findOne({ where: { account_name: 'Cash' } });
+    const bankAcc = coaMap['Bank'] || await ChartOfAccount.findOne({ where: { account_name: 'Bank' } });
+    const capitalAcc = coaMap['Owner Capital'] || await ChartOfAccount.findOne({ where: { account_name: 'Owner Capital' } });
+
+    if (!existingCapitalEntry) {
+      if (bankJournal && cashAcc && bankAcc && capitalAcc) {
+        const capitalEntry = await JournalEntry.create({
+          journal_id: bankJournal.id,
+          entry_date: '2026-01-01',
+          reference: 'OPENING_BALANCE_FY26',
+        });
+
+        await JournalItem.bulkCreate([
+          {
+            journal_entry_id: capitalEntry.id,
+            account_id: cashAcc.id,
+            debit: 500000.0,
+            credit: 0,
+            description: 'Opening Cash Reserve',
+          },
+          {
+            journal_entry_id: capitalEntry.id,
+            account_id: bankAcc.id,
+            debit: 1000000.0,
+            credit: 0,
+            description: 'Opening Bank Balance (HDFC Bank)',
+          },
+          {
+            journal_entry_id: capitalEntry.id,
+            account_id: capitalAcc.id,
+            debit: 0,
+            credit: 1500000.0,
+            description: 'Initial Equity Contribution',
+          },
+        ]);
+        // eslint-disable-next-line no-console
+        console.log('[Seed] Initial Capital & Liquidity Entry created (Dr Cash ₹500k, Dr Bank ₹1M, Cr Equity ₹1.5M).');
+      }
+    } else if (cashAcc && bankAcc && capitalAcc) {
+      // Ensure existing opening balance has adequate reserves
+      await JournalItem.update({ debit: 500000.0 }, { where: { journal_entry_id: existingCapitalEntry.id, account_id: cashAcc.id } });
+      await JournalItem.update({ debit: 1000000.0 }, { where: { journal_entry_id: existingCapitalEntry.id, account_id: bankAcc.id } });
+      await JournalItem.update({ credit: 1500000.0 }, { where: { journal_entry_id: existingCapitalEntry.id, account_id: capitalAcc.id } });
+    }
 
     // eslint-disable-next-line no-console
     console.log('[Seed] Database seeding completed successfully!');

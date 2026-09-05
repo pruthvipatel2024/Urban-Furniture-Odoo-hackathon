@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { CreditCard, DollarSign, AlertCircle, CheckCircle2, X, BookOpen } from 'lucide-react';
+import { CreditCard, AlertCircle, X, CheckCircle2, ShieldCheck, Wallet, Landmark } from 'lucide-react';
 
 export default function PaymentModal({
   isOpen,
@@ -11,15 +11,17 @@ export default function PaymentModal({
     invoices,
     vendorBills,
     recordPayment,
+    liquidBalances,
     formatCurrency
   } = useAccounting();
 
   const [selectedDocId, setSelectedDocId] = useState('');
   const [docType, setDocType] = useState('Customer Invoice');
-  const [paymentMethod, setPaymentMethod] = useState('Bank Account (HDFC)');
+  const [paymentMethod, setPaymentMethod] = useState('bank'); // 'bank' | 'cash'
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (targetDoc) {
@@ -34,12 +36,16 @@ export default function PaymentModal({
 
   // Active document object
   const activeDoc = docType === 'Customer Invoice'
-    ? invoices.find(i => i.id === selectedDocId)
-    : vendorBills.find(b => b.id === selectedDocId);
+    ? invoices.find(i => i.id === selectedDocId || i.backendId === Number(selectedDocId))
+    : vendorBills.find(b => b.id === selectedDocId || b.backendId === Number(selectedDocId));
 
-  const maxBalance = activeDoc ? activeDoc.balance : 0;
+  const maxBalance = activeDoc ? Number(activeDoc.balance || 0) : 0;
+  const isVendorPayment = docType === 'Vendor Bill';
 
-  const handleSubmit = (e) => {
+  // Simulated available funds for the chosen method
+  const availableFunds = paymentMethod === 'bank' ? liquidBalances.bank : liquidBalances.cash;
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -50,60 +56,69 @@ export default function PaymentModal({
     }
 
     if (payAmt > maxBalance + 0.01) {
-      setErrorMsg(`Payment amount (${formatCurrency(payAmt)}) cannot exceed remaining balance (${formatCurrency(maxBalance)}).`);
+      setErrorMsg(`Overpayment rejected! Payment of ${formatCurrency(payAmt)} exceeds remaining balance of ${formatCurrency(maxBalance)}.`);
       return;
     }
 
     if (!activeDoc) {
-      setErrorMsg('Please select a valid document to settle.');
+      setErrorMsg('Please select a valid unsettled document to process.');
       return;
     }
 
+    // For Vendor Outflow: Validate that we have sufficient simulated funds
+    if (isVendorPayment && payAmt > availableFunds) {
+      setErrorMsg(`Insufficient ${paymentMethod === 'bank' ? 'Bank' : 'Cash'} Balance! Available: ${formatCurrency(availableFunds)}, Required: ${formatCurrency(payAmt)}. Please choose another payment method or deposit funds.`);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      recordPayment({
+      await recordPayment({
         docId: activeDoc.id,
         docType,
         contactName: activeDoc.customerName || activeDoc.vendorName,
-        method: paymentMethod,
+        method: paymentMethod === 'bank' ? 'bank' : 'cash',
         amount: payAmt,
         notes
       });
 
       onClose();
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || 'Payment transaction failed.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-panel bg-slate-900 rounded-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-navy-950 p-1 border border-teak-500/30 shadow-sm shrink-0">
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 rounded-xl bg-[#C6E7FF] text-slate-900">
+              <CreditCard className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-100">Register Accounting Payment</h3>
-              <p className="text-[10px] text-teak-400">Urban Furniture Automated Double-Entry</p>
+              <h3 className="font-bold text-sm text-slate-900 font-display">Register Accounting Payment</h3>
+              <p className="text-[11px] text-slate-500">Atomic Double-Entry General Ledger Posting</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 font-medium flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
           {/* Transaction Category Selector */}
           <div>
-            <label className="block text-slate-400 font-medium mb-1">Transaction Category</label>
+            <label className="block text-slate-700 font-semibold mb-1">Transaction Category</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -111,11 +126,12 @@ export default function PaymentModal({
                   setDocType('Customer Invoice');
                   setSelectedDocId('');
                   setAmount('');
+                  setErrorMsg('');
                 }}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-colors ${
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   docType === 'Customer Invoice'
-                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs'
+                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 Customer Receipt (Inflow)
@@ -126,11 +142,12 @@ export default function PaymentModal({
                   setDocType('Vendor Bill');
                   setSelectedDocId('');
                   setAmount('');
+                  setErrorMsg('');
                 }}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-colors ${
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   docType === 'Vendor Bill'
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                    ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-xs'
+                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 Vendor Payout (Outflow)
@@ -140,7 +157,7 @@ export default function PaymentModal({
 
           {/* Document Dropdown */}
           <div>
-            <label className="block text-slate-400 font-medium mb-1">Select Document to Settle *</label>
+            <label className="block text-slate-700 font-semibold mb-1">Select Document to Settle *</label>
             <select
               required
               value={selectedDocId}
@@ -152,49 +169,80 @@ export default function PaymentModal({
                   : vendorBills.find(b => b.id === id);
                 if (doc) setAmount(doc.balance);
               }}
-              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none focus:border-indigo-500 font-bold"
+              className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-900 outline-none focus:border-[#3095EB] font-bold"
             >
               <option value="">-- Choose Unsettled Document --</option>
               {docType === 'Customer Invoice' ? (
                 invoices.filter(i => i.balance > 0).map(i => (
                   <option key={i.id} value={i.id}>
-                    {i.id} - {i.customerName} (Due: ₹{i.balance})
+                    {i.id} - {i.customerName} (Due: {formatCurrency(i.balance)})
                   </option>
                 ))
               ) : (
                 vendorBills.filter(b => b.balance > 0).map(b => (
                   <option key={b.id} value={b.id}>
-                    {b.id} - {b.vendorName} (Due: ₹{b.balance})
+                    {b.id} - {b.vendorName} (Due: {formatCurrency(b.balance)})
                   </option>
                 ))
               )}
             </select>
           </div>
 
-          {/* Active Balance Indicator */}
+          {/* Active Balance & Simulated Funds Info Panel */}
           {activeDoc && (
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-              <span className="text-slate-400">Current Outstanding:</span>
-              <span className="font-extrabold text-indigo-400 text-sm font-mono">{formatCurrency(maxBalance)}</span>
+            <div className="p-3 bg-[#D4F6FF]/30 rounded-xl border border-[#C6E7FF] space-y-1.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-600">Document Outstanding:</span>
+                <span className="font-extrabold text-[#10497D] text-sm font-mono">{formatCurrency(maxBalance)}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] border-t border-[#ACEEFF]/60 pt-1 text-slate-500">
+                <span>Available {paymentMethod === 'bank' ? 'Bank' : 'Cash'} Reserves:</span>
+                <span className="font-mono font-bold text-slate-800">{formatCurrency(availableFunds)}</span>
+              </div>
             </div>
           )}
 
-          {/* Payment Account */}
+          {/* Simulated Payment Method Selector */}
           <div>
-            <label className="block text-slate-400 font-medium mb-1">Payment Method / Ledger Account</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
-            >
-              <option value="Bank Account (HDFC)">Bank Account (HDFC Current A/C)</option>
-              <option value="Cash on Hand">Cash on Hand (Petty Cash)</option>
-            </select>
+            <label className="block text-slate-700 font-semibold mb-1">Simulated Payment Source</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('bank')}
+                className={`p-2.5 rounded-xl border text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                  paymentMethod === 'bank'
+                    ? 'bg-[#C6E7FF] border-[#9BD5FF] text-slate-900 shadow-xs'
+                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Landmark className="w-4 h-4 text-[#1B76C7] shrink-0" />
+                <div>
+                  <p className="font-bold text-xs">Pay Online / Bank</p>
+                  <p className="text-[10px] text-slate-500 font-mono">Reserves: {formatCurrency(liquidBalances.bank)}</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('cash')}
+                className={`p-2.5 rounded-xl border text-left flex items-center space-x-2 transition-all cursor-pointer ${
+                  paymentMethod === 'cash'
+                    ? 'bg-[#C6E7FF] border-[#9BD5FF] text-slate-900 shadow-xs'
+                    : 'bg-[#FBFBFB] border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Wallet className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="font-bold text-xs">Cash on Hand</p>
+                  <p className="text-[10px] text-slate-500 font-mono">Reserves: {formatCurrency(liquidBalances.cash)}</p>
+                </div>
+              </button>
+            </div>
           </div>
 
           {/* Amount Input */}
           <div>
-            <label className="block text-slate-400 font-medium mb-1">Settlement Amount (₹) *</label>
+            <label className="block text-slate-700 font-semibold mb-1">Settlement Amount (₹) *</label>
             <input
               type="number"
               required
@@ -203,18 +251,19 @@ export default function PaymentModal({
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-emerald-400 font-bold font-mono text-sm outline-none focus:border-indigo-500"
+              className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-900 font-bold font-mono text-sm outline-none focus:border-[#3095EB]"
             />
           </div>
 
+          {/* Notes */}
           <div>
-            <label className="block text-slate-400 font-medium mb-1">Payment Notes & Reference</label>
+            <label className="block text-slate-700 font-semibold mb-1">Payment Reference & Notes</label>
             <input
               type="text"
-              placeholder="e.g. UTR #9821389123 / IMPS Reference"
+              placeholder="e.g. UTR #9821389123 / Simulated IMPS Ref"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
+              className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none"
             />
           </div>
 
@@ -222,15 +271,17 @@ export default function PaymentModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold shadow-lg shadow-indigo-600/25"
+              disabled={isSubmitting}
+              className="px-5 py-2 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 rounded-xl font-bold shadow-xs border border-[#9BD5FF]/40 cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
             >
-              Confirm & Post to Ledger
+              <ShieldCheck className="w-4 h-4 text-slate-900" />
+              <span>{isSubmitting ? 'Posting Ledger...' : 'Confirm & Post to Ledger'}</span>
             </button>
           </div>
         </form>

@@ -29,6 +29,10 @@ class ContactController {
         ];
       }
 
+      if (req.user.role === 'contact') {
+        where.id = req.user.contact_id;
+      }
+
       const { count, rows } = await Contact.findAndCountAll({
         where,
         limit: Number(limit),
@@ -55,6 +59,10 @@ class ContactController {
       const contact = await Contact.findByPk(req.params.id);
       if (!contact) {
         return ApiResponse.notFound(res, `Contact with ID ${req.params.id} not found.`);
+      }
+
+      if (req.user.role === 'contact' && Number(contact.id) !== Number(req.user.contact_id)) {
+        return ApiResponse.forbidden(res, 'You do not have permission to view this contact profile.');
       }
 
       return ApiResponse.success(res, 'Contact retrieved successfully', contact);
@@ -177,6 +185,10 @@ class ContactController {
       const contact = await Contact.findByPk(req.params.id);
       if (!contact) {
         return ApiResponse.notFound(res, `Contact with ID ${req.params.id} not found.`);
+      }
+
+      if (req.user.role === 'contact' && Number(contact.id) !== Number(req.user.contact_id)) {
+        return ApiResponse.forbidden(res, 'You do not have permission to view this contact ledger history.');
       }
 
       // Customer Invoices & Receivables

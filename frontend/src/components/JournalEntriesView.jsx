@@ -9,9 +9,6 @@ import {
   Search,
   Trash2,
   Scale,
-  Calendar,
-  Layers,
-  FileCheck,
   ShieldCheck,
   X
 } from 'lucide-react';
@@ -21,9 +18,9 @@ export default function JournalEntriesView() {
     journalEntries,
     chartOfAccounts,
     journals,
-    analyticAccounts,
     createManualJournalEntry,
     getAccountLedger,
+    trialBalanceReport,
     formatCurrency,
     userRole
   } = useAccounting();
@@ -32,27 +29,26 @@ export default function JournalEntriesView() {
   const [activeSubTab, setActiveSubTab] = useState('entries'); // 'entries' | 'ledger' | 'trial-balance'
   const [filterJournal, setFilterJournal] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState('Bank Account (HDFC)');
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState(chartOfAccounts[0]?.name || 'Debtors');
 
   // Manual Journal Entry Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
   const [manualRef, setManualRef] = useState('');
-  const [manualJournalType, setManualJournalType] = useState('General');
-  const [manualAnalyticId, setManualAnalyticId] = useState('');
   const [manualLines, setManualLines] = useState([
-    { account: 'Bank Account (HDFC)', debit: 0, credit: 0 },
-    { account: "Owner's Capital", debit: 0, credit: 0 }
+    { accountId: 1, debit: 0, credit: 0, description: '' },
+    { accountId: 2, debit: 0, credit: 0, description: '' }
   ]);
   const [manualError, setManualError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Overall Ledger Balance Totals
   const grandTotalDebits = journalEntries.reduce((sum, entry) => {
-    return sum + entry.lines.reduce((lSum, l) => lSum + Number(l.debit || 0), 0);
+    return sum + (entry.lines || []).reduce((lSum, l) => lSum + Number(l.debit || 0), 0);
   }, 0);
 
   const grandTotalCredits = journalEntries.reduce((sum, entry) => {
-    return sum + entry.lines.reduce((lSum, l) => lSum + Number(l.credit || 0), 0);
+    return sum + (entry.lines || []).reduce((lSum, l) => lSum + Number(l.credit || 0), 0);
   }, 0);
 
   const isLedgerGloballyBalanced = Math.abs(grandTotalDebits - grandTotalCredits) < 0.01;
@@ -60,21 +56,28 @@ export default function JournalEntriesView() {
   // Filtered Journal Entries
   const filteredEntries = journalEntries.filter(entry => {
     const matchJournal = filterJournal === 'All' || entry.journalType === filterJournal;
-    const matchSearch = entry.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.lines.some(l => l.account.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchSearch = (entry.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (entry.reference || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (entry.lines || []).some(l => (l.account || '').toLowerCase().includes(searchTerm.toLowerCase()));
     return matchJournal && matchSearch;
   });
 
   // Manual Line Handlers
   const handleLineChange = (index, field, value) => {
     const updated = [...manualLines];
-    updated[index][field] = field === 'account' ? value : Number(value || 0);
+    if (field === 'accountId') {
+      updated[index].accountId = Number(value);
+    } else if (field === 'description') {
+      updated[index].description = value;
+    } else {
+      updated[index][field] = Number(value || 0);
+    }
     setManualLines(updated);
   };
 
   const handleAddLine = () => {
-    setManualLines([...manualLines, { account: 'Cash on Hand', debit: 0, credit: 0 }]);
+    const defaultAccId = chartOfAccounts[0]?.backendId || 1;
+    setManualLines([...manualLines, { accountId: defaultAccId, debit: 0, credit: 0, description: '' }]);
   };
 
   const handleRemoveLine = (index) => {
@@ -86,7 +89,7 @@ export default function JournalEntriesView() {
   const manualTotalCredits = manualLines.reduce((s, l) => s + Number(l.credit || 0), 0);
   const isManualBalanced = Math.abs(manualTotalDebits - manualTotalCredits) < 0.01 && manualTotalDebits > 0;
 
-  const handlePostManualEntry = (e) => {
+  const handlePostManualEntry = async (e) => {
     e.preventDefault();
     setManualError('');
 
@@ -95,329 +98,333 @@ export default function JournalEntriesView() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      createManualJournalEntry({
+      await createManualJournalEntry({
         date: manualDate,
         reference: manualRef || 'Manual Adjusting Entry',
-        journalType: manualJournalType,
-        analyticAccountId: manualAnalyticId || null,
         lines: manualLines
       });
 
       setShowCreateModal(false);
       setManualRef('');
       setManualLines([
-        { account: 'Bank Account (HDFC)', debit: 0, credit: 0 },
-        { account: "Owner's Capital", debit: 0, credit: 0 }
+        { accountId: 1, debit: 0, credit: 0, description: '' },
+        { accountId: 2, debit: 0, credit: 0, description: '' }
       ]);
     } catch (err) {
-      setManualError(err.message);
+      setManualError(err.message || 'Failed to post manual journal entry.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Account Ledger Statement Data
-  const currentAccountLedger = getAccountLedger(selectedAccountForLedger);
+  // Account Ledger view
+  const ledgerItems = getAccountLedger(selectedAccountForLedger);
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Status */}
-      <div className="glass-panel p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-11 h-11 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg border border-teak-500/40 shrink-0">
-            <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-slate-100 font-display">Double-Entry Accounting Ledger & Journals</h3>
-            <p className="text-xs text-slate-400">Strict mathematical integrity: every debit equals credit across all operations.</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div
-            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold border ${
+      {/* Top Header & Double-Entry Health Card */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">General Ledger System</span>
+            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center space-x-1 ${
               isLedgerGloballyBalanced
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>
-              Accounting Health: {isLedgerGloballyBalanced ? 'Strictly Balanced (0.00 Discrepancy)' : 'Imbalance Detected'}
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}>
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>{isLedgerGloballyBalanced ? 'Double-Entry Balanced (Dr = Cr)' : 'Ledger Unbalanced'}</span>
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* Internal Navigation Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setActiveSubTab('entries')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeSubTab === 'entries'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Journal Entries Stream ({journalEntries.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('ledger')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeSubTab === 'ledger'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Account Ledger Drilldown</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('trial-balance')}
-            className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeSubTab === 'trial-balance'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Scale className="w-4 h-4" />
-            <span>Trial Balance Sheet</span>
-          </button>
+          <h2 className="text-xl font-black text-slate-900 font-display">Authoritative Financial Ledger</h2>
+          <p className="text-xs text-slate-500">
+            Debits: <strong className="text-slate-900 font-mono">{formatCurrency(grandTotalDebits)}</strong> • Credits: <strong className="text-slate-900 font-mono">{formatCurrency(grandTotalCredits)}</strong>
+          </p>
         </div>
 
-        {userRole === 'Admin' && (
+        {userRole !== 'Contact' && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-indigo-600/25 transition-all"
+            className="flex items-center space-x-1.5 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-xs border border-[#9BD5FF]/40 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Manual Journal Entry</span>
+            <span>New Adjusting Entry</span>
           </button>
         )}
       </div>
 
-      {/* ========================================================= */}
-      {/* 1. JOURNAL ENTRIES STREAM */}
-      {/* ========================================================= */}
+      {/* Sub-tab Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setActiveSubTab('entries')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeSubTab === 'entries'
+                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <ListOrdered className="w-4 h-4" />
+            <span>All Journal Entries</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white text-slate-800 border border-slate-200">
+              {journalEntries.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('ledger')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeSubTab === 'ledger'
+                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Account-Wise Ledger</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('trial-balance')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center space-x-2 ${
+              activeSubTab === 'trial-balance'
+                ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Scale className="w-4 h-4" />
+            <span>Trial Balance</span>
+          </button>
+        </div>
+
+        {activeSubTab === 'entries' && (
+          <div className="relative sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search reference, account..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-[#FBFBFB] rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#3095EB]"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* SUB-VIEW 1: JOURNAL ENTRIES LIST */}
       {activeSubTab === 'entries' && (
         <div className="space-y-4">
-          <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-              {['All', 'Sales', 'Purchase', 'Bank', 'Cash', 'General'].map((j) => (
-                <button
-                  key={j}
-                  onClick={() => setFilterJournal(j)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                    filterJournal === j ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {j}
-                </button>
-              ))}
+          {filteredEntries.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 space-y-3">
+              <ListOrdered className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700">No journal entries found</p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Sales invoices, vendor bills, and payment settlements automatically post double-entry records here.
+              </p>
             </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search reference, account..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-900/90 text-xs rounded-xl border border-slate-700 focus:border-indigo-500 outline-none text-slate-200"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {filteredEntries.map((entry) => {
-              const entryDebits = entry.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
-              const entryCredits = entry.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
+          ) : (
+            filteredEntries.map((je) => {
+              const entryTotalDebit = (je.lines || []).reduce((s, l) => s + Number(l.debit || 0), 0);
+              const entryTotalCredit = (je.lines || []).reduce((s, l) => s + Number(l.credit || 0), 0);
+              const isEntryBalanced = Math.abs(entryTotalDebit - entryTotalCredit) < 0.01;
 
               return (
-                <div key={entry.id} className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-                  <div className="px-5 py-3 bg-slate-950/80 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div key={je.id} className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                  <div className="bg-[#FBFBFB] px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="flex items-center space-x-3">
-                      <span className="font-mono font-bold text-indigo-400 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
-                        {entry.id}
+                      <span className="font-bold text-slate-900 font-mono text-sm">{je.id}</span>
+                      <span className="font-semibold text-slate-700">{je.reference}</span>
+                      <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {je.journalType}
                       </span>
-                      <span className="font-semibold text-slate-200">Ref: {entry.reference}</span>
-                      <span className="text-slate-500">|</span>
-                      <span className="text-slate-400">{entry.date}</span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 font-semibold rounded-full text-[10px] uppercase border border-indigo-500/30">
-                        {entry.journalType || 'General'} Journal
+                    <div className="flex items-center space-x-4">
+                      <span className="text-slate-500">{je.date}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        isEntryBalanced ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                      }`}>
+                        {isEntryBalanced ? 'Balanced' : 'Unbalanced'}
                       </span>
                     </div>
                   </div>
 
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-800/60 text-slate-400 text-[11px]">
-                        <th className="py-2.5 px-5">Accounting Chart Line</th>
-                        <th className="py-2.5 px-5 text-right w-40">Debit (₹)</th>
-                        <th className="py-2.5 px-5 text-right w-40">Credit (₹)</th>
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="text-[11px] text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      <tr>
+                        <th className="py-2.5 px-5">Account Name</th>
+                        <th className="py-2.5 px-5">Line Description</th>
+                        <th className="py-2.5 px-5 text-right">Debit (₹)</th>
+                        <th className="py-2.5 px-5 text-right">Credit (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/40">
-                      {entry.lines.map((line, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                          <td className={`py-2.5 px-5 ${line.debit > 0 ? 'text-slate-100 font-bold' : 'text-slate-300 pl-10'}`}>
-                            {line.debit === 0 && <span className="text-slate-500 mr-2">To</span>}
-                            {line.account}
+                    <tbody className="divide-y divide-slate-100">
+                      {(je.lines || []).map((line, idx) => (
+                        <tr key={idx} className="hover:bg-[#D4F6FF]/10">
+                          <td className="py-2.5 px-5 font-semibold text-slate-800">{line.account}</td>
+                          <td className="py-2.5 px-5 text-slate-500">{line.description || je.reference}</td>
+                          <td className="py-2.5 px-5 text-right font-mono font-bold text-slate-800">
+                            {line.debit > 0 ? formatCurrency(line.debit) : '—'}
                           </td>
-                          <td className="py-2.5 px-5 text-right font-mono font-semibold text-emerald-400">
-                            {line.debit > 0 ? formatCurrency(line.debit) : '-'}
-                          </td>
-                          <td className="py-2.5 px-5 text-right font-mono font-semibold text-indigo-400">
-                            {line.credit > 0 ? formatCurrency(line.credit) : '-'}
+                          <td className="py-2.5 px-5 text-right font-mono font-bold text-slate-800">
+                            {line.credit > 0 ? formatCurrency(line.credit) : '—'}
                           </td>
                         </tr>
                       ))}
-                      <tr className="bg-slate-950/60 font-bold border-t border-slate-800 text-slate-300">
-                        <td className="py-2 px-5 text-right text-slate-400 font-medium">Balanced Totals:</td>
-                        <td className="py-2 px-5 text-right font-mono text-emerald-400">{formatCurrency(entryDebits)}</td>
-                        <td className="py-2 px-5 text-right font-mono text-indigo-400">{formatCurrency(entryCredits)}</td>
-                      </tr>
                     </tbody>
+                    <tfoot className="bg-[#FBFBFB] border-t border-slate-200 font-bold text-xs">
+                      <tr>
+                        <td colSpan="2" className="py-2.5 px-5 text-right text-slate-500">Total:</td>
+                        <td className="py-2.5 px-5 text-right font-mono text-slate-900">{formatCurrency(entryTotalDebit)}</td>
+                        <td className="py-2.5 px-5 text-right font-mono text-slate-900">{formatCurrency(entryTotalCredit)}</td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* 2. ACCOUNT LEDGER DRILLDOWN */}
-      {/* ========================================================= */}
+      {/* SUB-VIEW 2: ACCOUNT-WISE LEDGER */}
       {activeSubTab === 'ledger' && (
-        <div className="space-y-4">
-          <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
             <div>
-              <span className="text-xs text-slate-400 font-medium block">Select Chart of Account to Inspect:</span>
+              <h3 className="text-sm font-bold text-slate-900 font-display">Individual Account General Ledger</h3>
+              <p className="text-xs text-slate-500">Track debit, credit, and running balance for specific accounts</p>
+            </div>
+
+            <div className="sm:w-64">
               <select
                 value={selectedAccountForLedger}
                 onChange={(e) => setSelectedAccountForLedger(e.target.value)}
-                className="mt-1 px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 font-bold text-xs outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-[#3095EB]"
               >
-                {chartOfAccounts.map((acc) => (
-                  <option key={acc.id || acc.code} value={acc.name}>
-                    {acc.code} - {acc.name} ({acc.type})
-                  </option>
+                {chartOfAccounts.map(a => (
+                  <option key={a.id} value={a.name}>{a.name} ({a.type})</option>
                 ))}
               </select>
             </div>
-
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Active Ledger Statement</span>
-              <p className="font-bold text-slate-200 text-xs">{selectedAccountForLedger}</p>
-            </div>
           </div>
 
-          <div className="glass-panel rounded-2xl overflow-hidden">
+          {ledgerItems.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 space-y-2">
+              <BookOpen className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-xs font-medium text-slate-600">No journal postings for "{selectedAccountForLedger}" yet</p>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-950/60 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
                     <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4">JE Number</th>
-                    <th className="py-3 px-4">Particulars / Description</th>
+                    <th className="py-3 px-4">Entry Ref</th>
                     <th className="py-3 px-4">Journal</th>
-                    <th className="py-3 px-4 text-right">Debit (+)</th>
-                    <th className="py-3 px-4 text-right">Credit (−)</th>
-                    <th className="py-3 px-4 text-right">Running Balance</th>
+                    <th className="py-3 px-4">Description</th>
+                    <th className="py-3 px-4 text-right">Debit (₹)</th>
+                    <th className="py-3 px-4 text-right">Credit (₹)</th>
+                    <th className="py-3 px-4 text-right">Running Balance (₹)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {currentAccountLedger.map((item, i) => (
-                    <tr key={i} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-4 text-slate-400">{item.date}</td>
-                      <td className="py-3 px-4 font-mono font-bold text-indigo-400">{item.jeId}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-200">{item.reference}</td>
-                      <td className="py-3 px-4 text-slate-400">{item.journalType}</td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
-                        {item.debit > 0 ? formatCurrency(item.debit) : '-'}
+                <tbody className="divide-y divide-slate-100">
+                  {ledgerItems.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-[#D4F6FF]/20">
+                      <td className="py-3 px-4 text-slate-600">{item.date}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900">{item.jeId}</td>
+                      <td className="py-3 px-4 text-slate-500">{item.journalType}</td>
+                      <td className="py-3 px-4 text-slate-700">{item.description}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-800">
+                        {item.debit > 0 ? formatCurrency(item.debit) : '—'}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-indigo-400">
-                        {item.credit > 0 ? formatCurrency(item.credit) : '-'}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-800">
+                        {item.credit > 0 ? formatCurrency(item.credit) : '—'}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-extrabold text-slate-100">
+                      <td className="py-3 px-4 text-right font-mono font-bold text-[#145B9D]">
                         {formatCurrency(item.balance)}
                       </td>
                     </tr>
                   ))}
-                  {currentAccountLedger.length === 0 && (
-                    <tr>
-                      <td colSpan="7" className="py-8 text-center text-slate-500 italic">
-                        No transactions recorded for this account yet.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* 3. TRIAL BALANCE SHEET */}
-      {/* ========================================================= */}
+      {/* SUB-VIEW 3: TRIAL BALANCE */}
       {activeSubTab === 'trial-balance' && (
-        <div className="space-y-4">
-          <div className="glass-panel p-4 rounded-2xl flex items-center justify-between text-xs text-slate-300">
-            <div className="flex items-center space-x-2">
-              <Scale className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>
-                <strong>Trial Balance:</strong> Summarizes the debits and credits of all ledger accounts to prove mathematical equality in double-entry bookkeeping.
-              </span>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 font-display">Trial Balance Verification</h3>
+              <p className="text-xs text-slate-500">Summary of all debit and credit balances across active accounts</p>
             </div>
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+              isLedgerGloballyBalanced ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}>
+              {isLedgerGloballyBalanced ? 'System 100% Balanced' : 'Discrepancy Detected'}
+            </span>
           </div>
 
-          <div className="glass-panel rounded-2xl overflow-hidden">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-950/60 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4">Code</th>
-                  <th className="py-3 px-4">Account Title</th>
-                  <th className="py-3 px-4">Classification</th>
-                  <th className="py-3 px-4 text-right w-44">Debit Balance (₹)</th>
-                  <th className="py-3 px-4 text-right w-44">Credit Balance (₹)</th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th className="py-3 px-4">Account Code</th>
+                  <th className="py-3 px-4">Account Name</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4 text-right">Debit Total (₹)</th>
+                  <th className="py-3 px-4 text-right">Credit Total (₹)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {chartOfAccounts.map((acc) => {
-                  const isDebitNormal = acc.type === 'Asset' || acc.type === 'Expense';
-                  return (
-                    <tr key={acc.id || acc.code} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-indigo-400">{acc.code}</td>
-                      <td className="py-3 px-4 font-bold text-slate-100">{acc.name}</td>
-                      <td className="py-3 px-4 text-slate-400">{acc.type}</td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
-                        {isDebitNormal ? formatCurrency(Math.max(0, acc.balance)) : '-'}
+              <tbody className="divide-y divide-slate-100">
+                {trialBalanceReport?.rows && trialBalanceReport.rows.length > 0 ? (
+                  trialBalanceReport.rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-[#D4F6FF]/20">
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{String(row.id).startsWith('COA') ? row.id : `COA-100${row.id}`}</td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-800">{row.account_name}</td>
+                      <td className="py-3.5 px-4 text-slate-500 capitalize">{row.account_type}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                        {row.total_debit > 0 ? formatCurrency(row.total_debit) : '—'}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-indigo-400">
-                        {!isDebitNormal ? formatCurrency(Math.max(0, acc.balance)) : '-'}
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                        {row.total_credit > 0 ? formatCurrency(row.total_credit) : '—'}
                       </td>
                     </tr>
-                  );
-                })}
+                  ))
+                ) : (
+                  chartOfAccounts.map((acc) => {
+                    const accEntries = getAccountLedger(acc.name);
+                    const totalDr = accEntries.reduce((s, e) => s + Number(e.debit || 0), 0);
+                    const totalCr = accEntries.reduce((s, e) => s + Number(e.credit || 0), 0);
+
+                    return (
+                      <tr key={acc.id} className="hover:bg-[#D4F6FF]/20">
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{acc.id}</td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-800">{acc.name}</td>
+                        <td className="py-3.5 px-4 text-slate-500">{acc.type}</td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                          {totalDr > 0 ? formatCurrency(totalDr) : '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                          {totalCr > 0 ? formatCurrency(totalCr) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
-              <tfoot>
-                <tr className="bg-slate-950 font-extrabold text-sm border-t-2 border-indigo-500/50 text-slate-100">
-                  <td colSpan="3" className="py-3 px-4 text-right uppercase tracking-wider">
-                    Trial Balance Totals:
+              <tfoot className="bg-[#FBFBFB] border-t-2 border-slate-300 font-bold text-xs">
+                <tr>
+                  <td colSpan="3" className="py-3 px-4 text-right text-slate-700">Grand Total:</td>
+                  <td className="py-3 px-4 text-right font-mono text-slate-900 text-sm">
+                    {formatCurrency(trialBalanceReport?.grandTotalDebit !== undefined ? trialBalanceReport.grandTotalDebit : grandTotalDebits)}
                   </td>
-                  <td className="py-3 px-4 text-right font-mono text-emerald-400">
-                    {formatCurrency(grandTotalDebits)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-indigo-400">
-                    {formatCurrency(grandTotalCredits)}
+                  <td className="py-3 px-4 text-right font-mono text-slate-900 text-sm">
+                    {formatCurrency(trialBalanceReport?.grandTotalCredit !== undefined ? trialBalanceReport.grandTotalCredit : grandTotalCredits)}
                   </td>
                 </tr>
               </tfoot>
@@ -426,194 +433,156 @@ export default function JournalEntriesView() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MODAL: MANUAL JOURNAL ENTRY BUILDER */}
-      {/* ========================================================= */}
+      {/* MANUAL JOURNAL ENTRY MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel bg-slate-900 rounded-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
-                <Plus className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-sm text-slate-100">Create Manual Journal Entry</h3>
+                <div className="p-2 rounded-xl bg-[#C6E7FF] text-slate-900">
+                  <Scale className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 font-display">New Adjusting Journal Entry</h3>
+                  <p className="text-[11px] text-slate-500">Post balanced double-entry adjustments to the General Ledger</p>
+                </div>
               </div>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {manualError && (
-              <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 font-medium flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
                 <span>{manualError}</span>
               </div>
             )}
 
             <form onSubmit={handlePostManualEntry} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 font-medium mb-1">Journal Date *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Entry Date *</label>
                   <input
                     type="date"
                     required
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
+                    className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-slate-400 font-medium mb-1">Journal Category</label>
-                  <select
-                    value={manualJournalType}
-                    onChange={(e) => setManualJournalType(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
-                  >
-                    <option value="General">General Journal</option>
-                    <option value="Bank">Bank Journal</option>
-                    <option value="Cash">Cash Journal</option>
-                    <option value="Sales">Sales Journal</option>
-                    <option value="Purchase">Purchase Journal</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-medium mb-1">Analytic Cost Center</label>
-                  <select
-                    value={manualAnalyticId}
-                    onChange={(e) => setManualAnalyticId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
-                  >
-                    <option value="">-- None (General) --</option>
-                    {analyticAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-slate-700 font-semibold mb-1">Entry Reference / Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Month-End Depreciation Adjustment"
+                    value={manualRef}
+                    onChange={(e) => setManualRef(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#FBFBFB] rounded-xl border border-slate-200 text-slate-800 outline-none"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-400 font-medium mb-1">Transaction Reference / Narration *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Month-end depreciation on showroom display fixtures"
-                  value={manualRef}
-                  onChange={(e) => setManualRef(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 rounded-xl border border-slate-700 text-slate-100 outline-none"
-                />
-              </div>
-
-              {/* Dynamic Debit / Credit Rows */}
+              {/* Lines Table */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-300">Journal Item Lines (Debit & Credit)</span>
+                  <label className="font-semibold text-slate-700">Journal Lines (Debits must equal Credits)</label>
                   <button
                     type="button"
                     onClick={handleAddLine}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1"
+                    className="text-[11px] font-bold text-[#1B76C7] hover:underline flex items-center space-x-1 cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3 h-3" />
                     <span>Add Line</span>
                   </button>
                 </div>
 
                 <div className="space-y-2">
                   {manualLines.map((line, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 bg-slate-950/80 p-3 rounded-xl border border-slate-800 items-center">
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-[#FBFBFB] p-2.5 rounded-xl border border-slate-200">
                       <div className="col-span-5">
-                        <label className="block text-[10px] text-slate-500 mb-0.5">Account</label>
                         <select
                           required
-                          value={line.account}
-                          onChange={(e) => handleLineChange(idx, 'account', e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-900 rounded-lg border border-slate-700 text-slate-100 text-xs"
+                          value={line.accountId}
+                          onChange={(e) => handleLineChange(idx, 'accountId', e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-slate-800 text-xs outline-none"
                         >
-                          {chartOfAccounts.map((a) => (
-                            <option key={a.id || a.code} value={a.name}>
-                              {a.name} ({a.type})
-                            </option>
+                          {chartOfAccounts.map(a => (
+                            <option key={a.id} value={a.backendId || a.id}>{a.name} ({a.type})</option>
                           ))}
                         </select>
                       </div>
 
                       <div className="col-span-3">
-                        <label className="block text-[10px] text-slate-500 mb-0.5">Debit Amount (₹)</label>
                         <input
                           type="number"
                           min="0"
-                          value={line.debit || ''}
+                          step="0.01"
+                          placeholder="Debit (₹)"
+                          value={line.debit}
                           onChange={(e) => handleLineChange(idx, 'debit', e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-900 rounded-lg border border-slate-700 text-emerald-400 font-mono font-bold text-xs"
+                          className="w-full px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-slate-800 text-xs text-right font-mono outline-none"
                         />
                       </div>
 
                       <div className="col-span-3">
-                        <label className="block text-[10px] text-slate-500 mb-0.5">Credit Amount (₹)</label>
                         <input
                           type="number"
                           min="0"
-                          value={line.credit || ''}
+                          step="0.01"
+                          placeholder="Credit (₹)"
+                          value={line.credit}
                           onChange={(e) => handleLineChange(idx, 'credit', e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-900 rounded-lg border border-slate-700 text-indigo-400 font-mono font-bold text-xs"
+                          className="w-full px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-slate-800 text-xs text-right font-mono outline-none"
                         />
                       </div>
 
-                      <div className="col-span-1 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLine(idx)}
-                          className="text-slate-500 hover:text-rose-400 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="col-span-1 text-right">
+                        {manualLines.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLine(idx)}
+                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Live Equality Verification Card */}
-              <div
-                className={`p-4 rounded-xl border flex justify-between items-center ${
-                  isManualBalanced
-                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                    : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                }`}
-              >
-                <div>
-                  <span className="font-bold block">
-                    Double-Entry Rule Check: {isManualBalanced ? 'Balanced ✅' : 'Out of Balance ❌'}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    Total Debits ({formatCurrency(manualTotalDebits)}) must equal Total Credits ({formatCurrency(manualTotalCredits)})
-                  </span>
+              {/* Balance Summary Bar */}
+              <div className={`p-3 rounded-xl border flex justify-between items-center text-xs ${
+                isManualBalanced
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-rose-50 border-rose-200 text-rose-900'
+              }`}>
+                <div className="space-x-4">
+                  <span>Debits: <strong>{formatCurrency(manualTotalDebits)}</strong></span>
+                  <span>Credits: <strong>{formatCurrency(manualTotalCredits)}</strong></span>
                 </div>
-                <div className="font-mono font-extrabold text-sm">
-                  Diff: {formatCurrency(Math.abs(manualTotalDebits - manualTotalCredits))}
-                </div>
+                <span className="font-bold">
+                  {isManualBalanced ? '✓ Balanced' : `Discrepancy: ${formatCurrency(Math.abs(manualTotalDebits - manualTotalCredits))}`}
+                </span>
               </div>
 
-              <div className="pt-3 flex justify-end space-x-2">
+              <div className="pt-2 flex justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium"
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!isManualBalanced}
-                  className={`px-5 py-2 rounded-xl font-semibold shadow-lg transition-all ${
-                    isManualBalanced
-                      ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
-                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  }`}
+                  disabled={!isManualBalanced || isSubmitting}
+                  className="px-5 py-2 bg-[#C6E7FF] hover:bg-[#9BD5FF] active:bg-[#64B9FF] text-slate-900 rounded-xl font-bold border border-[#9BD5FF]/40 cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  Post Journal Entry to Ledger
+                  {isSubmitting ? 'Posting...' : 'Post to Ledger'}
                 </button>
               </div>
             </form>

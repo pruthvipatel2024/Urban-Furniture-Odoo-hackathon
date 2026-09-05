@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Contact, Product, SalesOrder, CustomerInvoice } = require('../models');
+const { sequelize, Contact, Product, SalesOrder, CustomerInvoice } = require('../src/models');
 const { seedDatabase } = require('../src/utils/seedData');
 
 let adminToken = '';

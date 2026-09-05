@@ -3,15 +3,14 @@ import { useAccounting } from '../context/AccountingContext';
 import {
   Users,
   Receipt,
-  FileText,
   CreditCard,
   Building2,
   CheckCircle2,
-  Printer,
-  ArrowDownLeft,
-  ExternalLink,
+  Phone,
+  Mail,
+  MapPin,
   ShieldCheck,
-  DollarSign
+  Package
 } from 'lucide-react';
 
 export default function ContactPortal() {
@@ -23,223 +22,240 @@ export default function ContactPortal() {
     setPaymentTargetDoc,
     setShowPaymentModal,
     formatCurrency,
-    currentUser
+    currentUser,
+    userRole
   } = useAccounting();
 
   const activeContact = contacts.find(c => 
+    (currentUser?.contact_id && c.backendId === currentUser.contact_id) ||
     c.id === activeContactId || 
-    c.backendId === Number(activeContactId) ||
-    (currentUser?.contact_id && c.backendId === currentUser.contact_id)
-  ) || contacts.find(c => c.type === 'Customer') || contacts[0] || { id: 'CNT-002', name: 'Nimesh Pathak', type: 'Customer' };
+    c.backendId === Number(activeContactId)
+  ) || contacts[0] || null;
   
-  const history = getContactHistory(activeContact.id || activeContact.backendId);
+  const history = activeContact ? getContactHistory(activeContact.id || activeContact.backendId) : {
+    invoices: [],
+    vendorBills: [],
+    totalInvoiced: 0,
+    totalReceivable: 0,
+    totalBilled: 0,
+    totalPayable: 0
+  };
 
-  const [activePortalTab, setActivePortalTab] = useState(activeContact.type === 'Vendor' ? 'bills' : 'invoices');
+  const [activePortalTab, setActivePortalTab] = useState(activeContact?.type === 'Vendor' ? 'bills' : 'invoices');
+
+  if (!activeContact) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 space-y-3">
+        <Users className="w-10 h-10 text-slate-300 mx-auto" />
+        <p className="text-sm font-semibold text-slate-700">No contact profile found</p>
+        <p className="text-xs text-slate-400">Please create a customer or vendor contact first.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Enterprise Header Banner */}
-      <div className="glass-panel p-4 rounded-2xl flex items-center justify-between border border-teak-500/20 bg-gradient-to-r from-navy-900/90 via-slate-900/90 to-navy-950/90">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-navy-950 p-1 border border-teak-500/30 flex items-center justify-center shadow-md">
-            <img src="/logo.png" alt="Urban Furniture Logo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-100 flex items-center space-x-2">
-              <span>Urban Furniture</span>
-              <span className="text-[10px] bg-teak-500/20 text-teak-300 px-2 py-0.5 rounded-md border border-teak-500/30">External Portal</span>
-            </h2>
-            <p className="text-xs text-slate-400">Self-Service Accounting Ledger & Real-Time Invoicing Portal</p>
-          </div>
-        </div>
-
-        {/* Portal Switcher for Demo */}
-        <div className="flex items-center space-x-2 bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-xs">
-          <span className="text-teak-400 font-semibold">Simulate As:</span>
-          <select
-            value={activeContact.id}
-            onChange={(e) => setActiveContactId(e.target.value)}
-            className="bg-slate-900 text-teak-300 font-bold px-3 py-1.5 rounded-lg border border-teak-500/30 outline-none cursor-pointer"
-          >
-            {contacts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.type})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Contact Switcher & Profile Card */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-teak-500/30">
+      {/* Contact Profile Header Card */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
-          <img
-            src={activeContact.profileImage}
-            alt={activeContact.name}
-            className="w-14 h-14 rounded-full object-cover border-2 border-teak-500/50 shadow-md"
-          />
+          <div className="w-14 h-14 rounded-full bg-[#D4F6FF] border border-[#C6E7FF] flex items-center justify-center text-slate-900 font-extrabold text-lg">
+            {activeContact.name.charAt(0).toUpperCase()}
+          </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-bold text-slate-100">{activeContact.name}</h2>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  activeContact.type === 'Customer'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-teak-500/20 text-teak-300 border border-teak-500/30'
-                }`}
-              >
-                {activeContact.type} Portal
+              <h2 className="text-lg font-bold text-slate-900">{activeContact.name}</h2>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                activeContact.type === 'Customer'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}>
+                {activeContact.type}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{activeContact.email} • {activeContact.mobile}</p>
-            <p className="text-xs text-slate-400">{activeContact.address?.city}, {activeContact.address?.state}</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {activeContact.email || 'No email registered'} • {activeContact.mobile || 'No mobile registered'}
+            </p>
+            <p className="text-xs text-slate-400">
+              {activeContact.address?.city || 'Mumbai'}, {activeContact.address?.state || 'Maharashtra'}
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Account Balances Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {activeContact.type !== 'Vendor' && (
-          <div className="glass-panel p-5 rounded-2xl">
-            <span className="text-xs text-slate-400 uppercase font-semibold">My Invoiced Purchases</span>
-            <h3 className="text-2xl font-bold text-slate-100 mt-1 font-mono">{formatCurrency(history.totalInvoiced)}</h3>
-            <span className="text-[11px] text-slate-500">Cumulative order billing</span>
-          </div>
-        )}
-
-        {activeContact.type !== 'Vendor' && (
-          <div className="glass-panel p-5 rounded-2xl">
-            <span className="text-xs text-slate-400 uppercase font-semibold">My Outstanding Due</span>
-            <h3 className={`text-2xl font-bold mt-1 font-mono ${history.totalReceivable > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {formatCurrency(history.totalReceivable)}
-            </h3>
-            <span className="text-[11px] text-slate-400">
-              {history.totalReceivable > 0 ? 'Payment required' : 'All invoices fully settled'}
-            </span>
-          </div>
-        )}
-
-        {activeContact.type !== 'Customer' && (
-          <div className="glass-panel p-5 rounded-2xl">
-            <span className="text-xs text-slate-400 uppercase font-semibold">My Vendor Supplies</span>
-            <h3 className="text-2xl font-bold text-amber-400 mt-1 font-mono">{formatCurrency(history.totalBilled)}</h3>
-            <span className="text-[11px] text-slate-500">Total bills generated</span>
-          </div>
-        )}
-
-        {activeContact.type !== 'Customer' && (
-          <div className="glass-panel p-5 rounded-2xl">
-            <span className="text-xs text-slate-400 uppercase font-semibold">Pending Vendor Payout</span>
-            <h3 className="text-2xl font-bold text-indigo-400 mt-1 font-mono">{formatCurrency(history.totalPayable)}</h3>
-            <span className="text-[11px] text-slate-400">Awaiting Urban Furniture settlement</span>
+        {/* Contact Selector for Admin / Accountant role */}
+        {userRole !== 'Contact' && contacts.length > 1 && (
+          <div className="flex items-center space-x-2 bg-[#FBFBFB] p-2 rounded-xl border border-slate-200 text-xs">
+            <span className="text-slate-500 font-semibold">Viewing Contact:</span>
+            <select
+              value={activeContact.id}
+              onChange={(e) => setActiveContactId(e.target.value)}
+              className="bg-white text-slate-900 font-bold px-3 py-1.5 rounded-lg border border-slate-200 outline-none cursor-pointer"
+            >
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.type})
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
 
-      {/* Transactions Table for this Contact */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="font-bold text-sm text-slate-100 flex items-center space-x-2">
-            <Receipt className="w-4 h-4 text-indigo-400" />
-            <span>My Documents & Invoices</span>
-          </h3>
-
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print Statement</span>
-          </button>
+      {/* Account Balance Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Customer Receivable */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 uppercase font-semibold">Outstanding Due Balance</span>
+            <h3 className="text-2xl font-bold text-[#145B9D] mt-1 font-mono">{formatCurrency(history.totalReceivable)}</h3>
+            <span className="text-[11px] text-slate-400">Total Billed: {formatCurrency(history.totalInvoiced)}</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-[#D4F6FF] text-[#145B9D]">
+            <Receipt className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="glass-panel rounded-2xl overflow-hidden">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-950/60 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Document ID</th>
-                <th className="py-3 px-4">Issue Date</th>
-                <th className="py-3 px-4">Due Date</th>
-                <th className="py-3 px-4">Total Amount</th>
-                <th className="py-3 px-4">Remaining Balance</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {history.invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">{inv.id}</td>
-                  <td className="py-3.5 px-4 text-slate-400">{inv.date}</td>
-                  <td className="py-3.5 px-4 text-slate-400">{inv.dueDate}</td>
-                  <td className="py-3.5 px-4 font-extrabold text-slate-100 font-mono">
-                    {formatCurrency(inv.totalAmount)}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold font-mono text-emerald-400">
-                    {formatCurrency(inv.balance)}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        inv.status === 'Paid'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      }`}
-                    >
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    {inv.balance > 0 ? (
-                      <button
-                        onClick={() => {
-                          setPaymentTargetDoc({ ...inv, type: 'Customer Invoice' });
-                          setShowPaymentModal(true);
-                        }}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1 rounded-xl text-xs transition-all shadow-md"
-                      >
-                        Pay Online Now
-                      </button>
-                    ) : (
-                      <span className="text-[11px] font-semibold text-emerald-400 flex items-center justify-end space-x-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Paid</span>
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-
-              {history.vendorBills.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-bold text-amber-400">{b.id}</td>
-                  <td className="py-3.5 px-4 text-slate-400">{b.date}</td>
-                  <td className="py-3.5 px-4 text-slate-400">{b.dueDate}</td>
-                  <td className="py-3.5 px-4 font-extrabold text-slate-100 font-mono">
-                    {formatCurrency(b.totalAmount)}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold font-mono text-amber-400">
-                    {formatCurrency(b.balance)}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        b.status === 'Paid'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}
-                    >
-                      {b.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <span className="text-slate-400 text-xs font-mono">Bill Settled by UF</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Vendor Payable */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 uppercase font-semibold">Vendor Payable Balance</span>
+            <h3 className="text-2xl font-bold text-amber-700 mt-1 font-mono">{formatCurrency(history.totalPayable)}</h3>
+            <span className="text-[11px] text-slate-400">Total Procured: {formatCurrency(history.totalBilled)}</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-amber-50 text-amber-600">
+            <Building2 className="w-5 h-5" />
+          </div>
         </div>
+      </div>
+
+      {/* Portal Documents Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setActivePortalTab('invoices')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activePortalTab === 'invoices'
+                  ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Invoices ({history.invoices.length})
+            </button>
+            <button
+              onClick={() => setActivePortalTab('bills')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activePortalTab === 'bills'
+                  ? 'bg-[#C6E7FF] text-slate-900 border border-[#9BD5FF]/40 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Bills ({history.vendorBills.length})
+            </button>
+          </div>
+        </div>
+
+        {activePortalTab === 'invoices' && (
+          history.invoices.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 space-y-2">
+              <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-xs font-medium text-slate-600">No invoices on file for this account</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">Invoice #</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4 text-right">Total (₹)</th>
+                    <th className="py-3 px-4 text-right">Balance Due (₹)</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-right">Online Payment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {history.invoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-[#D4F6FF]/20">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 font-mono">{inv.id}</td>
+                      <td className="py-3.5 px-4 text-slate-600">{inv.date}</td>
+                      <td className="py-3.5 px-4 text-slate-600">{inv.dueDate}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">{formatCurrency(inv.totalAmount)}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-[#145B9D]">{formatCurrency(inv.balance)}</td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          inv.status === 'Partially Paid' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {inv.balance > 0 && (
+                          <button
+                            onClick={() => {
+                              setPaymentTargetDoc(inv);
+                              setShowPaymentModal(true);
+                            }}
+                            className="px-3 py-1 bg-[#C6E7FF] hover:bg-[#9BD5FF] text-slate-900 font-bold text-[11px] rounded-lg border border-[#9BD5FF]/40 cursor-pointer inline-flex items-center space-x-1"
+                          >
+                            <CreditCard className="w-3 h-3" />
+                            <span>Pay Online</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {activePortalTab === 'bills' && (
+          history.vendorBills.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 space-y-2">
+              <Building2 className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-xs font-medium text-slate-600">No vendor bills on file for this account</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-[#FBFBFB] text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">Bill #</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4 text-right">Total (₹)</th>
+                    <th className="py-3 px-4 text-right">Balance Due (₹)</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {history.vendorBills.map((bill) => (
+                    <tr key={bill.id} className="hover:bg-[#D4F6FF]/20">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 font-mono">{bill.id}</td>
+                      <td className="py-3.5 px-4 text-slate-600">{bill.date}</td>
+                      <td className="py-3.5 px-4 text-slate-600">{bill.dueDate}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">{formatCurrency(bill.totalAmount)}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-amber-700">{formatCurrency(bill.balance)}</td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          bill.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          bill.status === 'Partially Paid' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {bill.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
       </div>
     </div>
   );

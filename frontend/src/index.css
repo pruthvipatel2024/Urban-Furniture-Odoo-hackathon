@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#0b1329] text-slate-100 font-sans antialiased selection:bg-[#c58940] selection:text-white;
+    @apply bg-[#FBFBFB] text-slate-800 font-sans antialiased selection:bg-[#C6E7FF] selection:text-slate-900;
   }
 
   h1, h2, h3, h4, .font-heading {
@@ -12,53 +12,65 @@
   }
 }
 
-/* Custom Scrollbar styled for Navy/Teak theme */
+/* Custom Scrollbar styled for Light SaaS theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080d1d;
+  background: #F3F4F6;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e3e62;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c58940;
+  background: #94A3B8;
 }
 
-/* Glassmorphism theme classes matching Urban Furniture Logo */
+/* Modern Card and Panel styling for light theme */
+.erp-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.erp-card-secondary {
+  background: #D4F6FF;
+  border: 1px solid #ACEEFF;
+  border-radius: 1rem;
+}
+
+.erp-surface {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+}
+
+.erp-dropdown {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
 .glass-panel {
-  background: rgba(13, 27, 54, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(197, 137, 64, 0.15);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
 .glass-card {
-  background: rgba(11, 19, 41, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
 }
 
 .glass-dropdown {
-  background: rgba(11, 19, 41, 0.96);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(197, 137, 64, 0.25);
-}
-
-.teak-glow {
-  box-shadow: 0 0 25px -5px rgba(197, 137, 64, 0.3);
-}
-
-.navy-glow {
-  box-shadow: 0 0 25px -5px rgba(30, 62, 98, 0.5);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 /* Printable Statement and Invoice Styles */

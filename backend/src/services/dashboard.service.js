@@ -48,7 +48,14 @@ class DashboardService {
     const totalCustomers = await Contact.count({ where: { type: ['customer', 'both'], is_archived: false } });
     const totalVendors = await Contact.count({ where: { type: ['vendor', 'both'], is_archived: false } });
 
-    // 6. Recent Payments
+    // 6. Cash and Bank Balances from Ledger
+    const bs = await ReportService.getBalanceSheet({});
+    const cashAccObj = bs.assets?.accounts?.find(a => a.name?.toLowerCase() === 'cash');
+    const bankAccObj = bs.assets?.accounts?.find(a => a.name?.toLowerCase() === 'bank');
+    const cashBalance = cashAccObj ? cashAccObj.balance : 0;
+    const bankBalance = bankAccObj ? bankAccObj.balance : 0;
+
+    // 7. Recent Payments
     const recentPayments = await Payment.findAll({
       limit: 5,
       order: [['created_at', 'DESC']],
@@ -58,14 +65,14 @@ class DashboardService {
       ],
     });
 
-    // 7. Recent Invoices
+    // 8. Recent Invoices
     const recentInvoices = await CustomerInvoice.findAll({
       limit: 5,
       order: [['created_at', 'DESC']],
       include: [{ model: Contact, as: 'customer' }],
     });
 
-    // 8. Recent Journal Entries
+    // 9. Recent Journal Entries
     const recentJournals = await JournalEntry.findAll({
       limit: 5,
       order: [['created_at', 'DESC']],
@@ -83,6 +90,9 @@ class DashboardService {
         totalCustomers,
         totalVendors,
         lowStockAlerts: lowStockCount,
+        cashBalance,
+        bankBalance,
+        liquidFunds: add(cashBalance, bankBalance),
       },
       recentInvoices,
       recentPayments,

@@ -1,4 +1,4 @@
-const { sequelize, Payment, CustomerInvoice, VendorBill, Contact } = require('../models');
+const { sequelize, Payment, CustomerInvoice, VendorBill, Contact, ChartOfAccount, JournalItem } = require('../models');
 const { add, subtract, toFixedNumber } = require('../utils/decimal');
 const AccountingService = require('./accounting.service');
 
@@ -86,6 +86,25 @@ class PaymentService {
         if (payAmount > remaining + 0.005) {
           throw new Error(
             `Overpayment rejected! Payment of ₹${payAmount.toFixed(2)} exceeds remaining balance of ₹${remaining.toFixed(2)} on Bill #${vendorBillId}.`
+          );
+        }
+
+        // Validate liquidity balance in MySQL ledger
+        const cashOrBankAccountName = method === 'bank' ? 'Bank' : 'Cash';
+        const liquidityAccount = await AccountingService.getAccountByName(cashOrBankAccountName, 'asset', t);
+        const items = await JournalItem.findAll({
+          where: { account_id: liquidityAccount.id },
+          transaction: t,
+        });
+
+        let currentBalance = 0;
+        for (const item of items) {
+          currentBalance = add(currentBalance, subtract(Number(item.debit), Number(item.credit)));
+        }
+
+        if (payAmount > currentBalance + 0.005) {
+          throw new Error(
+            `INSUFFICIENT_${method.toUpperCase()}_BALANCE: Insufficient funds in ${method.toUpperCase()} account (Available: ₹${currentBalance.toFixed(2)}, Required: ₹${payAmount.toFixed(2)}).`
           );
         }
 

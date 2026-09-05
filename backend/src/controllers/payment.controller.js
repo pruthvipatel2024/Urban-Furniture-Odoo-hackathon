@@ -10,11 +10,42 @@ class PaymentController {
   static async getPayments(req, res, next) {
     try {
       const { method, page = 1, limit = 50 } = req.query;
-      const offset = (Number(page) - 1) * Number(limit);
-
       const where = {};
       if (method && ['cash', 'bank'].includes(method)) {
         where.method = method;
+      }
+
+      const include = [
+        { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
+      ];
+
+      if (req.user.role === 'contact') {
+        const { Op } = require('sequelize');
+        include.push(
+          {
+            model: CustomerInvoice,
+            as: 'customerInvoice',
+            required: false,
+            where: { customer_id: req.user.contact_id },
+            include: [{ model: Contact, as: 'customer' }],
+          },
+          {
+            model: VendorBill,
+            as: 'vendorBill',
+            required: false,
+            where: { vendor_id: req.user.contact_id },
+            include: [{ model: Contact, as: 'vendor' }],
+          }
+        );
+        where[Op.or] = [
+          { '$customerInvoice.customer_id$': req.user.contact_id },
+          { '$vendorBill.vendor_id$': req.user.contact_id },
+        ];
+      } else {
+        include.push(
+          { model: CustomerInvoice, as: 'customerInvoice', include: [{ model: Contact, as: 'customer' }] },
+          { model: VendorBill, as: 'vendorBill', include: [{ model: Contact, as: 'vendor' }] }
+        );
       }
 
       const { count, rows } = await Payment.findAndCountAll({
@@ -22,28 +53,14 @@ class PaymentController {
         limit: Number(limit),
         offset,
         order: [['payment_date', 'DESC'], ['id', 'DESC']],
-        include: [
-          { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
-          { model: CustomerInvoice, as: 'customerInvoice', include: [{ model: Contact, as: 'customer' }] },
-          { model: VendorBill, as: 'vendorBill', include: [{ model: Contact, as: 'vendor' }] },
-        ],
+        include,
       });
 
-      // Filter for contact role
-      let filteredRows = rows;
-      if (req.user.role === 'contact') {
-        filteredRows = rows.filter((p) => {
-          if (p.customerInvoice && p.customerInvoice.customer_id === req.user.contact_id) return true;
-          if (p.vendorBill && p.vendorBill.vendor_id === req.user.contact_id) return true;
-          return false;
-        });
-      }
-
       return ApiResponse.success(res, 'Payments retrieved successfully', {
-        total: req.user.role === 'contact' ? filteredRows.length : count,
+        total: count,
         page: Number(page),
-        totalPages: Math.ceil((req.user.role === 'contact' ? filteredRows.length : count) / Number(limit)),
-        payments: filteredRows,
+        totalPages: Math.ceil(count / Number(limit)),
+        payments: rows,
       });
     } catch (err) {
       next(err);

@@ -9,11 +9,9 @@ import {
   TrendingUp,
   CreditCard,
   FileText,
-  Building2,
   ListOrdered,
   Layers,
   PieChart,
-  Sparkles,
   UserCheck
 } from 'lucide-react';
 
@@ -23,7 +21,6 @@ export default function Sidebar() {
     setActiveTab,
     sidebarOpen,
     setSidebarOpen,
-    setShowDemoTourModal,
     userRole
   } = useAccounting();
 
@@ -47,11 +44,11 @@ export default function Sidebar() {
     { id: 'reports', label: 'Financial Reports', icon: FileText, category: 'Accounting', roles: ['Admin', 'Accountant'] },
 
     // External Portal
-    { id: 'portal', label: 'My Invoices & Balance', icon: UserCheck, category: 'Customer / Vendor Portal', roles: ['Contact'] }
+    { id: 'portal', label: 'My Invoices & Ledger', icon: UserCheck, category: 'Client Portal', roles: ['Contact'] }
   ];
 
   const categories = userRole === 'Contact'
-    ? ['Customer / Vendor Portal']
+    ? ['Client Portal']
     : ['Main', 'Master Data', 'Transactions', 'Accounting'];
 
   return (
@@ -59,20 +56,20 @@ export default function Sidebar() {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-[#0b1329]/80 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-slate-900/40 z-40 lg:hidden backdrop-blur-xs transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#080e1e] text-slate-300 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 border-r border-[#1e3e62]/40 shadow-2xl ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white text-slate-700 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 border-r border-slate-200 shadow-xs ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Brand Header with Official Logo */}
-        <div className="h-20 px-5 flex items-center justify-between border-b border-[#1e3e62]/40 bg-[#060a17]">
+        {/* Brand Header */}
+        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200 bg-white">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg border border-[#c58940]/40 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-xs border border-slate-200 shrink-0">
               <img
                 src="/logo.png"
                 alt="Urban Furniture Logo"
@@ -80,33 +77,14 @@ export default function Sidebar() {
               />
             </div>
             <div>
-              <h1 className="font-display font-extrabold text-white tracking-wide text-base leading-tight">
+              <h1 className="font-display font-extrabold text-slate-900 tracking-tight text-sm leading-tight">
                 Urban Furniture
               </h1>
-              <span className="text-[10px] text-teak-400 font-semibold uppercase tracking-wider bg-[#132b4f]/80 px-2 py-0.5 rounded-full border border-teak-500/30">
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider font-mono">
                 ERP Accounting
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Demo Tour Assistant Banner */}
-        <div className="p-3 border-b border-[#1e3e62]/30">
-          <button
-            onClick={() => {
-              setShowDemoTourModal(true);
-              setSidebarOpen(false);
-            }}
-            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-teak-600/20 via-navy-800/40 to-teak-600/20 border border-teak-500/40 hover:border-teak-400 text-teak-300 text-xs font-bold transition-all shadow-sm group"
-          >
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-teak-400 group-hover:scale-110 transition-transform" />
-              <span>14-Step Demo Tour</span>
-            </div>
-            <span className="text-[10px] bg-teak-500/30 text-teak-200 px-1.5 py-0.5 rounded font-mono font-bold">
-              Guide
-            </span>
-          </button>
         </div>
 
         {/* Navigation Items */}
@@ -117,7 +95,7 @@ export default function Sidebar() {
 
             return (
               <div key={category} className="space-y-1">
-                <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   {category}
                 </p>
                 {items.map((item) => {
@@ -130,13 +108,13 @@ export default function Sidebar() {
                         setActiveTab(item.id);
                         setSidebarOpen(false);
                       }}
-                      className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                      className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
                         isActive
-                          ? 'bg-gradient-to-r from-teak-600 to-teak-500 text-white shadow-lg shadow-teak-600/30 font-bold'
-                          : 'text-slate-400 hover:text-white hover:bg-[#132b4f]/50'
+                          ? 'bg-[#C6E7FF] text-slate-900 shadow-xs font-bold border border-[#9BD5FF]/40'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-[#D4F6FF]/40'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-slate-900' : 'text-slate-500'}`} />
                       <span>{item.label}</span>
                     </button>
                   );
@@ -147,14 +125,14 @@ export default function Sidebar() {
         </div>
 
         {/* Footer info */}
-        <div className="p-4 border-t border-[#1e3e62]/40 bg-[#060a17] text-xs">
+        <div className="p-4 border-t border-slate-200 bg-[#FBFBFB] text-xs">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center border border-teak-500/40 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center border border-slate-200 shrink-0">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain rounded" />
             </div>
             <div>
-              <p className="font-bold text-slate-200">Urban Furniture Ltd.</p>
-              <p className="text-[10px] text-teak-400/80 font-mono">FY 2026-2027 • Double-Entry</p>
+              <p className="font-bold text-slate-800 text-xs">Urban Furniture Ltd.</p>
+              <p className="text-[10px] text-slate-500 font-mono">FY 2026-2027 • Double-Entry</p>
             </div>
           </div>
         </div>
