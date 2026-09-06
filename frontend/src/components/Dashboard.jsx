@@ -42,14 +42,14 @@ export default function Dashboard({
   } = useAccounting();
 
   // 1. Sales Calculations from live DB
-  const salesAllCount = salesOrders.length;
-  const salesConfirmedCount = salesOrders.filter(so => (so.normalizedStatus || (so.status || '').toLowerCase()) === 'confirmed' || (so.normalizedStatus || (so.status || '').toLowerCase()) === 'invoiced').length;
-  const salesDraftCount = salesOrders.filter(so => (so.normalizedStatus || (so.status || '').toLowerCase()) === 'draft').length;
+  const salesAllCount = Number(dashboardData?.kpi?.totalSalesOrders ?? salesOrders.length);
+  const salesConfirmedCount = Number(dashboardData?.kpi?.salesConfirmedCount ?? salesOrders.filter(so => (so.normalizedStatus || (so.status || '').toLowerCase()) === 'confirmed' || (so.normalizedStatus || (so.status || '').toLowerCase()) === 'invoiced').length);
+  const salesDraftCount = Number(dashboardData?.kpi?.salesDraftCount ?? salesOrders.filter(so => (so.normalizedStatus || (so.status || '').toLowerCase()) === 'draft').length);
 
   // 2. Purchase Calculations from live DB
-  const purchaseAllCount = purchaseOrders.length;
-  const purchaseConfirmedCount = purchaseOrders.filter(po => ['confirmed', 'received', 'billed'].includes(po.normalizedStatus || (po.status || '').toLowerCase())).length;
-  const purchaseDraftCount = purchaseOrders.filter(po => (po.normalizedStatus || (po.status || '').toLowerCase()) === 'draft').length;
+  const purchaseAllCount = Number(dashboardData?.kpi?.totalPurchaseOrders ?? purchaseOrders.length);
+  const purchaseConfirmedCount = Number(dashboardData?.kpi?.purchaseConfirmedCount ?? purchaseOrders.filter(po => ['confirmed', 'received', 'billed'].includes(po.normalizedStatus || (po.status || '').toLowerCase())).length);
+  const purchaseDraftCount = Number(dashboardData?.kpi?.purchaseDraftCount ?? purchaseOrders.filter(po => (po.normalizedStatus || (po.status || '').toLowerCase()) === 'draft').length);
 
   // 3. Budget Calculations from live DB
   const totalBudgetsCount = budgets.filter(b => ['confirmed', 'draft', 'revised'].includes(b.normalizedStatus || (b.status || '').toLowerCase())).length;

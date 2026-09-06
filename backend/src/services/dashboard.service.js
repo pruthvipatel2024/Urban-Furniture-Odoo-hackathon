@@ -1,4 +1,4 @@
-const { CustomerInvoice, VendorBill, Payment, Product, Contact, JournalEntry } = require('../models');
+const { CustomerInvoice, VendorBill, Payment, Product, Contact, JournalEntry, SalesOrder, PurchaseOrder } = require('../models');
 const { add, subtract } = require('../utils/decimal');
 const ReportService = require('./report.service');
 
@@ -64,6 +64,15 @@ class DashboardService {
     // 7. Total Posted Journal Entries
     const postedEntriesCount = await JournalEntry.count();
 
+    // 7.1 Real-Time Dynamic Sales & Purchase Order Counts from MySQL
+    const totalSalesOrders = await SalesOrder.count();
+    const salesConfirmedCount = await SalesOrder.count({ where: { status: ['confirmed', 'invoiced'] } });
+    const salesDraftCount = await SalesOrder.count({ where: { status: 'draft' } });
+
+    const totalPurchaseOrders = await PurchaseOrder.count();
+    const purchaseConfirmedCount = await PurchaseOrder.count({ where: { status: ['confirmed', 'received', 'billed'] } });
+    const purchaseDraftCount = await PurchaseOrder.count({ where: { status: 'draft' } });
+
     // 8. Recent Payments
     const recentPayments = await Payment.findAll({
       limit: 5,
@@ -103,6 +112,12 @@ class DashboardService {
         bankBalance,
         liquidFunds: add(cashBalance, bankBalance),
         postedEntriesCount,
+        totalSalesOrders,
+        salesConfirmedCount,
+        salesDraftCount,
+        totalPurchaseOrders,
+        purchaseConfirmedCount,
+        purchaseDraftCount,
       },
       recentInvoices,
       recentPayments,
